@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: receptionistai-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: river123
+      POSTGRES_DB: receptionistai
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - receptionistai-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: receptionistai-backend
+    environment:
+      # Base de datos
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: river123
+      DB_DATABASE: receptionistai
+      
+      # Servidor
+      PORT: 3001
+      NODE_ENV: development
+      
+      # URLs
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      COOKIE_DOMAIN: localhost
+      
+      # Estas las debes completar con tus valores reales
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: http://localhost:3001/auth/google/callback
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-this}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-key-change-this}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-your-private-key-change-this}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+      - ./api/temp:/app/temp
+    networks:
+      - receptionistai-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: npm run start:dev
+
+  # N8N - Automatización
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: receptionistai-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev/
+      - N8N_EDITOR_BASE_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev
+      # Variables para conectar con el backend
+      - BACKEND_URL=http://backend:3001
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - receptionistai-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Ngrok - Túnel HTTPS para VAPI
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: receptionistai-ngrok
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http n8n:5678 --log=stdout
+    networks:
+      - receptionistai-network
+    depends_on:
+      - n8n
+    restart: unless-stopped
+
+networks:
+  receptionistai-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  n8n_data:
