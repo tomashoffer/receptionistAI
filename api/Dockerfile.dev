@@ -1,0 +1,25 @@
+# Dockerfile para desarrollo con hot-reload
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Instalar dependencias globales
+RUN npm install -g @nestjs/cli
+
+# Copiar package.json y package-lock.json
+COPY package*.json ./
+
+# Instalar todas las dependencias (incluyendo devDependencies)
+RUN npm install --legacy-peer-deps
+
+# Crear directorio temp para archivos de audio
+RUN mkdir -p temp
+
+# El código fuente se monta como volumen en docker-compose.yml
+# para tener hot-reload
+
+# Exponer puerto
+EXPOSE 3001
+
+# Comando por defecto (se puede sobrescribir en docker-compose.yml)
+CMD ["npm", "run", "start:dev"]
