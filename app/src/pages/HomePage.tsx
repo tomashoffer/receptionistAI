@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { VoiceCallModal } from '@/components/reusable/VoiceCallModal';
 import VapiCallModal from '@/components/reusable/VapiCallModal';
-import { useAuth } from '@/contexts/AuthContext';
+import { useUserStore } from '@/stores/userStore';
 import { Phone, Calendar, Clock, User, LogOut } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, logout } = useAuth();
+  const { user, reset } = useUserStore();
   const [showCallModal, setShowCallModal] = useState(false);
   const [showVapiModal, setShowVapiModal] = useState(false);
 

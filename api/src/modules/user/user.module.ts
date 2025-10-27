@@ -4,11 +4,11 @@ import { forwardRef, Module } from '@nestjs/common';
 import { UserController } from './user.controller';
 import { UserRepository } from './user.repository';
 import { UserService } from './user.service';
-// Repositorios eliminados - proyecto anterior
 
 @Module({
     imports: [
-        forwardRef(() => AuthModule), TypeOrmExModule.forCustomRepository([UserRepository])],
+        forwardRef(() => AuthModule),
+        TypeOrmExModule.forCustomRepository([UserRepository])],
     controllers: [UserController],
     exports: [UserService],
     providers: [UserService],

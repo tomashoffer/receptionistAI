@@ -71,18 +71,26 @@ Ver [DOCKER-SETUP.md](DOCKER-SETUP.md) para instrucciones detalladas.
 ### 3. Levantar todo con Docker
 
 ```bash
-# Construir e iniciar todos los servicios (Backend + PostgreSQL + N8N)
-docker-compose up -d
+# Construir e iniciar todos los servicios (Frontend + Backend + PostgreSQL + N8N + ngrok)
+docker-compose up --build
+
+# En modo detached (segundo plano)
+docker-compose up -d --build
 
 # Ver logs
 docker-compose logs -f
+
+# Ver logs de un servicio específico
+docker-compose logs -f frontend
+docker-compose logs -f backend
 ```
 
 ### 4. Acceder a los servicios
 
+- **Frontend**: http://localhost:3000 ⭐ **¡COMIENZA AQUÍ!**
 - **Backend API**: http://localhost:3001
 - **N8N**: http://localhost:5678 (usuario: `admin`, contraseña: `admin123`)
-- **Frontend**: http://localhost:3000
+- **PostgreSQL**: localhost:5433 (puerto externo)
 
 ---
 

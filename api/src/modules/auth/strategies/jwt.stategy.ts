@@ -23,8 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
         (request: Request) => {
-          // Extraer token de cookies
-          return request?.cookies?.accessToken || null;
+          // Extraer token de cookies HTTP-only
+          return request?.cookies?.access_token || null;
         },
       ]),
       ignoreExpiration: false,

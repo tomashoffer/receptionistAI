@@ -4,8 +4,9 @@ import type { IAbstractEntity } from '../../common/abstract.entity';
 import { UseDto } from '../../decorators/use-dto.decorator';
 import { UserDto } from './dto/user.dto';
 import { RoleType } from '../../constants/role-type';
-// Referencias eliminadas - proyecto anterior
 import { AuthProviders } from '../../constants/auth.enums';
+import { Business } from '../business/entities/business.entity';
+import { BusinessUser } from '../business/entities/business-user.entity';
 
 export interface IUserEntity extends IAbstractEntity<UserDto> {
   first_name?: string;
@@ -64,8 +65,6 @@ export class UserEntity
     @Column({ nullable: true })
     passwordChangedAt: Date;
 
-    // Relaciones eliminadas - proyecto anterior
-
     @Column({
         type: 'enum',
         enum: AuthProviders,
@@ -73,4 +72,11 @@ export class UserEntity
         nullable: true
     })
     authProvider: AuthProviders;
+
+    // Relaciones con Business
+    @OneToMany(() => Business, business => business.owner)
+    ownedBusinesses: Business[];
+
+    @OneToMany(() => BusinessUser, businessUser => businessUser.user)
+    businessMemberships: BusinessUser[];
 }

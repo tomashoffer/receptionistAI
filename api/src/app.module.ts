@@ -12,6 +12,10 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { GoogleModule } from './modules/google/google.module';
+import { BusinessModule } from './modules/business/business.module';
+import { WebhookModule } from './modules/webhooks/webhook.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
+import { VapiModule } from './modules/vapi/vapi.module';
 
 @Module({
   imports: [
@@ -45,6 +49,10 @@ import { GoogleModule } from './modules/google/google.module';
     AppointmentsModule,
     VoiceModule,
     GoogleModule,
+    BusinessModule,
+    WebhookModule,
+    AssistantModule,
+    VapiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

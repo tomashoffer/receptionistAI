@@ -52,6 +52,25 @@ export class UserRegisterDto {
     @IsOptional()
     readonly phone?: string;
 
+    // Campos del negocio
+    @ApiProperty()
+    @IsString()
+    @IsOptional()
+    @Trim()
+    readonly business_name?: string;
+
+    @ApiProperty()
+    @IsString()
+    @IsOptional()
+    @Trim()
+    readonly business_phone?: string;
+
+    @ApiProperty()
+    @IsString()
+    @IsOptional()
+    @Trim()
+    readonly industry?: string;
+
     authProvider?: AuthProviders;
     
     passwordChangedAt?: Date;

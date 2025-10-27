@@ -35,6 +35,21 @@ export class AuthService {
         private readonly apiConfigService: ApiConfigService,
     ) {}
 
+    async verifyRefreshToken(refreshToken: string): Promise<{ userId: string; role: RoleType }> {
+        try {
+            const payload = await this.jwtService.verifyAsync(refreshToken);
+            if (payload.type !== TokenType.REFRESH_TOKEN) {
+                throw new Error('Invalid token type');
+            }
+            return {
+                userId: payload.userId,
+                role: payload.role,
+            };
+        } catch (error) {
+            throw new Error('Invalid refresh token');
+        }
+    }
+
     async createAccessToken(userParams: {
         role: RoleType;
         userId: string;
@@ -51,6 +66,18 @@ export class AuthService {
                 { ...userParams, ...{ type: TokenType.REFRESH_TOKEN } },
                 { expiresIn: this.apiConfigService.authConfig.refreshTokenExpirationTime })
         });
+    }
+
+    async createToken(user: UserEntity): Promise<{ accessToken: string; refreshToken: string }> {
+        const tokenPayload = await this.createAccessToken({
+            userId: user.id,
+            role: user.role,
+        });
+        
+        return {
+            accessToken: tokenPayload.accessToken,
+            refreshToken: tokenPayload.refreshToken,
+        };
     }
 
     async validateUser(userLoginDto: UserLoginDto, host: string): Promise<{ user: UserEntity, isPasswordExpired: boolean }> {

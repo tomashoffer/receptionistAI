@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserModule } from '../user/user.module';
+import { BusinessModule } from '../business/business.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ApiConfigService } from '../../shared/services/api-config.service';
@@ -13,6 +14,7 @@ import { MailingService } from '../mailing/mailing.service';
 @Module({
   imports: [
     UserModule,
+    BusinessModule,
     // The PassportModule only needs to be registered once.
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

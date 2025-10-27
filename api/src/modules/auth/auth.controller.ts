@@ -9,7 +9,8 @@ import {
     Param,
     Post,
     Req,
-    Res
+    Res,
+    UnauthorizedException
 } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from 'express';
@@ -20,6 +21,7 @@ import { UserDto } from "../user/dto/user.dto";
 import { UserEntity } from "../user/user.entity";
 import { UserService } from "../user/user.service";
 import { AuthService } from "./auth.service";
+import { BusinessService } from "../business/services/business.service";
 import { AuthActions } from "./auth.types";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { EmailExistsDto } from "./dto/EmailExistsDto";
@@ -33,6 +35,7 @@ import {
 } from "./dto/reset-password.dto";
 import { plainToInstance } from 'class-transformer';
 import { GuestLoginPayloadDto } from "./dto/GuestLoginPayload.dto";
+import { ApiConfigService } from "../../shared/services/api-config.service";
 
 
 @Controller("auth")
@@ -41,6 +44,8 @@ export class AuthController {
     constructor(
         private userService: UserService,
         private authService: AuthService,
+        private businessService: BusinessService,
+        private apiConfigService: ApiConfigService,
     ) {}
 
     @Post("login")
@@ -51,7 +56,8 @@ export class AuthController {
     })
     async userLogin(
         @Body() userLoginDto: UserLoginDto,
-        @Headers() headers
+        @Headers() headers,
+        @Res({ passthrough: true }) res: Response
     ): Promise<LoginPayloadDto> {
         const { user: userEntity, isPasswordExpired } = await this.authService.validateUser(userLoginDto, headers.host);
 
@@ -61,6 +67,21 @@ export class AuthController {
                 role: userEntity.role,
             }
         );
+
+        // Configurar cookies HTTP-only para el token
+        res.cookie('access_token', token.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000, // 24 horas
+        });
+
+        res.cookie('refresh_token', token.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+        });
 
         return new LoginPayloadDto(
             userEntity.toDto(),
@@ -114,19 +135,75 @@ export class AuthController {
             throw new HttpException('User already exists', HttpStatus.CONFLICT);
         }
 
-        const { email } = await this.userService.createUser(registerData);
-        return { email };
+        // Crear usuario
+        const user = await this.userService.createUser(registerData);
+        
+        // Crear negocio asociado (solo si se proporcionan los datos del negocio)
+        if (registerData.business_name && registerData.business_phone && registerData.industry) {
+            const businessData = {
+                owner_id: user.id,
+                name: registerData.business_name,
+                phone_number: registerData.business_phone,
+                industry: registerData.industry,
+                ai_prompt: `Eres María, la recepcionista virtual de ${registerData.business_name}. Tu trabajo es atender llamadas telefónicas de manera profesional y amable, ayudar a los clientes con información sobre servicios, agendar citas y resolver consultas generales.`,
+                status: 'trial' as any,
+            };
+            
+            await this.businessService.create(businessData, user.id);
+        }
+        
+        return { email: user.email };
     }
 
-    @Post("token/refresh")
+    @Post("logout")
     @HttpCode(HttpStatus.OK)
-    @Auth([RoleType.USER, RoleType.ADMIN])
+    @ApiOkResponse({ description: "Successfully logged out" })
+    async logout(): Promise<{ message: string }> {
+        // El frontend se encarga de limpiar localStorage
+        return { message: 'Successfully logged out' };
+    }
+
+    @Post("refresh")
+    @HttpCode(HttpStatus.OK)
     @ApiOkResponse({
         type: LoginPayloadDto,
         description: "User info with access token",
     })
-    async refreshAccessToken(): Promise<LoginPayloadDto> {
-        throw "Not implemented";
+    async refreshAccessToken(@Req() req: Request): Promise<LoginPayloadDto> {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new UnauthorizedException('Refresh token required');
+        }
+        
+        const refreshToken = authHeader.substring(7);
+        
+        try {
+            // Verificar el refresh token (debería ser un JWT válido)
+            const decoded = await this.authService.verifyRefreshToken(refreshToken);
+            
+            // Generar nuevo access token
+            const user = await this.userService.findOne({ id: decoded.userId });
+            if (!user) {
+                throw new UnauthorizedException('User not found');
+            }
+            
+            const token = await this.authService.createToken(user);
+            
+            const tokenPayload = new TokenPayloadDto({
+                accessToken: token.accessToken,
+                refreshToken: token.refreshToken,
+                expiresIn: this.apiConfigService.authConfig.jwtExpirationTime,
+            });
+            
+            return new LoginPayloadDto(
+                user.toDto(),
+                tokenPayload,
+                AuthActions.LOGIN,
+                false
+            );
+        } catch (error) {
+            throw new UnauthorizedException('Invalid refresh token');
+        }
     }
 
     
@@ -156,6 +233,14 @@ export class AuthController {
         return null;
     }
 
+    @Get("token")
+    @HttpCode(HttpStatus.OK)
+    @ApiOkResponse({ description: "Get access token from cookies" })
+    async getToken(@Req() req: Request): Promise<{ accessToken?: string }> {
+        const accessToken = req.cookies?.access_token;
+        return { accessToken };
+    }
+
     @Get("me")
     @HttpCode(HttpStatus.OK)
     @Auth([RoleType.USER, RoleType.ADMIN])
@@ -166,12 +251,6 @@ export class AuthController {
         id: entity.id
       });
       
-      // Si el usuario se autenticó con cookies pero no hay token en localStorage,
-      // devolver el token en el header Authorization
-      const authHeader = req.headers.authorization;
-      if (!authHeader && req.cookies?.accessToken) {
-        res.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
-      }
       
       return res.json(userData);
     }

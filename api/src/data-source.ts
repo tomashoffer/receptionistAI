@@ -6,6 +6,11 @@ import { SnakeNamingStrategy } from "./snake-naming.strategy";
 import { UserEntity } from "./modules/user/user.entity";
 import { AppointmentEntity } from "./modules/appointments/appointment.entity";
 import { VoiceInteractionEntity } from "./modules/voice/voice-interaction.entity";
+import { Business } from "./modules/business/entities/business.entity";
+import { BusinessUser } from "./modules/business/entities/business-user.entity";
+import { CallLog } from "./modules/business/entities/call-log.entity";
+import { BusinessPlan } from "./modules/business/entities/business-plan.entity";
+import { Assistant } from "./modules/assistant/entities/assistant.entity";
 
 const isCompiled = path.extname(__filename).endsWith(".js");
 
@@ -20,7 +25,12 @@ const options = {
   entities: [
     UserEntity,
     AppointmentEntity,
-    VoiceInteractionEntity
+    VoiceInteractionEntity,
+    Business,
+    BusinessUser,
+    CallLog,
+    BusinessPlan,
+    Assistant,
   ],
   migrations: [
     isCompiled

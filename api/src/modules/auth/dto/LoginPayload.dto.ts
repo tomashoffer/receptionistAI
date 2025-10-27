@@ -34,7 +34,7 @@ export class LoginPayloadDto {
     ) {
         this.user = user;
         this.token = token;
-        this.isPasswordExpired = isPasswordExpired;
         this.action = action;
+        this.isPasswordExpired = isPasswordExpired;
     }
 }

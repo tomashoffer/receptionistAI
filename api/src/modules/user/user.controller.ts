@@ -215,18 +215,18 @@ export class UserController {
         return this.userService.updateUser(id, updateUserFromAdminDto);
     }
 
-    @Post('register')
-    @HttpCode(HttpStatus.OK)
-    @ApiOkResponse({ type: UserDto, description: 'Successfully Registered' })
-    async userRegister(
-        @Body() userRegisterDto: UserRegisterDto,
-    ): Promise<UserDto> {
-        const createdUser: UserEntity = await this.userService.createUser(
-            userRegisterDto,
-        );
+    // @Post('register') // Comentado - usando MultitenantAuthController
+    // @HttpCode(HttpStatus.OK)
+    // @ApiOkResponse({ type: UserDto, description: 'Successfully Registered' })
+    // async userRegister(
+    //     @Body() userRegisterDto: UserRegisterDto,
+    // ): Promise<UserDto> {
+    //     const createdUser: UserEntity = await this.userService.createUser(
+    //         userRegisterDto,
+    //     );
 
-        return createdUser.toDto();
-    }
+    //     return createdUser.toDto();
+    // }
 
     @Post('token')
     @HttpCode(HttpStatus.OK)

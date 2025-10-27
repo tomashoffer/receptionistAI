@@ -61,6 +61,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
           last_name: profile.name.familyName,
           password:'',
           authProvider: AuthProviders.GOOGLE,
+          business_name: undefined,
+          business_phone: undefined,
+          industry: undefined,
         };
 
         user = await this.usersService.createUser(userPayload);
