@@ -1,6 +1,6 @@
 import { apiService } from './api.service';
 
-export interface VapiAssistant {
+export interface ElevenlabsAssistant {
   id: string;
   name: string;
   prompt: string;
@@ -43,7 +43,7 @@ export interface CreateAssistantRequest {
   required_fields?: (string | { name: string; type: string; label: string })[];
 }
 
-export interface VapiVoice {
+export interface ElevenlabsVoice {
   id: string;
   name: string;
   language: string;
@@ -51,20 +51,20 @@ export interface VapiVoice {
   provider: string;
 }
 
-class VapiService {
-  private baseUrl = '/vapi';
+class ElevenlabsService {
+  private baseUrl = '/elevenlabs';
 
   /**
-   * Crear un nuevo assistant en VAPI para un business
+   * Crear un nuevo assistant en ElevenLabs para un business
    */
-  async createAssistant(data: CreateAssistantRequest): Promise<VapiAssistant> {
+  async createAssistant(data: CreateAssistantRequest): Promise<ElevenlabsAssistant> {
     try {
       const response = await apiService.request(`${this.baseUrl}/assistants`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
 
-      return response as VapiAssistant;
+      return response as ElevenlabsAssistant;
     } catch (error) {
       console.error('Error en createAssistant:', error);
       throw error;
@@ -72,13 +72,13 @@ class VapiService {
   }
 
   /**
-   * Obtener la lista de voces disponibles en VAPI
+   * Obtener la lista de voces disponibles en ElevenLabs
    */
-  async getVoices(): Promise<VapiVoice[]> {
+  async getVoices(): Promise<ElevenlabsVoice[]> {
     try {
       const response = await apiService.request(`${this.baseUrl}/voices`);
 
-      return response as VapiVoice[];
+      return response as ElevenlabsVoice[];
     } catch (error) {
       console.error('Error en getVoices:', error);
       throw error;
@@ -88,11 +88,11 @@ class VapiService {
   /**
    * Obtener las voces válidas disponibles para crear assistants
    */
-  async getAvailableVoices(): Promise<VapiVoice[]> {
+  async getAvailableVoices(): Promise<ElevenlabsVoice[]> {
     try {
       const response = await apiService.request(`${this.baseUrl}/voices/available`);
 
-      return response as VapiVoice[];
+      return response as ElevenlabsVoice[];
     } catch (error) {
       console.error('Error en getAvailableVoices:', error);
       throw error;
@@ -102,11 +102,11 @@ class VapiService {
   /**
    * Obtener un assistant específico por ID
    */
-  async getAssistant(assistantId: string): Promise<VapiAssistant> {
+  async getAssistant(assistantId: string): Promise<ElevenlabsAssistant> {
     try {
       const response = await apiService.request(`${this.baseUrl}/assistants/${assistantId}`);
 
-      return response as VapiAssistant;
+      return response as ElevenlabsAssistant;
     } catch (error) {
       console.error('Error en getAssistant:', error);
       throw error;
@@ -116,14 +116,14 @@ class VapiService {
   /**
    * Actualizar un assistant existente
    */
-  async updateAssistant(assistantId: string, data: Partial<CreateAssistantRequest>): Promise<VapiAssistant> {
+  async updateAssistant(assistantId: string, data: Partial<CreateAssistantRequest>): Promise<ElevenlabsAssistant> {
     try {
       const response = await apiService.request(`${this.baseUrl}/assistants/${assistantId}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       });
 
-      return response as VapiAssistant;
+      return response as ElevenlabsAssistant;
     } catch (error) {
       console.error('Error en updateAssistant:', error);
       throw error;
@@ -160,4 +160,7 @@ class VapiService {
   }
 }
 
-export const vapiService = new VapiService();
+export const elevenlabsService = new ElevenlabsService();
+
+// Legacy export for compatibility
+export const vapiService = elevenlabsService;

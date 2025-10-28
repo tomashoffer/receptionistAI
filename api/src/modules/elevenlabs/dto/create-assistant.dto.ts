@@ -2,8 +2,13 @@ import { IsString, IsOptional, IsUrl, IsIn, IsEnum, IsArray, IsObject } from 'cl
 import { VoiceProvider, ModelProvider, AssistantStatus } from '../../assistant/entities/assistant.entity';
 
 export class CreateAssistantDto {
+  @IsOptional()
   @IsString()
-  business_id: string;
+  business_id?: string;
+
+  @IsOptional()
+  @IsString()
+  businessId?: string;
 
   @IsOptional()
   @IsString()
@@ -80,10 +85,6 @@ export class CreateAssistantDto {
 
   @IsOptional()
   @IsString()
-  businessId?: string;
-
-  @IsOptional()
-  @IsString()
   firstMessage?: string;
 
   @IsOptional()
@@ -94,3 +95,4 @@ export class CreateAssistantDto {
   @IsString()
   serverUrlSecret?: string;
 }
+

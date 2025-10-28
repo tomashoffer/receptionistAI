@@ -15,7 +15,7 @@ import { GoogleModule } from './modules/google/google.module';
 import { BusinessModule } from './modules/business/business.module';
 import { WebhookModule } from './modules/webhooks/webhook.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
-import { VapiModule } from './modules/vapi/vapi.module';
+import { ElevenlabsModule } from './modules/elevenlabs/elevenlabs.module';
 
 @Module({
   imports: [
@@ -52,7 +52,7 @@ import { VapiModule } from './modules/vapi/vapi.module';
     BusinessModule,
     WebhookModule,
     AssistantModule,
-    VapiModule,
+    ElevenlabsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

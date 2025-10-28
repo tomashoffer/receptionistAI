@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { apiService } from '@/services/api.service';
-import { vapiService } from '@/services/vapi.service';
+import { elevenlabsService } from '@/services/vapi.service';
 import { useRouter, usePathname } from 'next/navigation';
 import { PlusIcon, CheckIcon, PencilIcon, Bars3Icon, PhoneIcon } from '@heroicons/react/24/outline';
 import LogoutButton from '@/components/LogoutButton';
-import VapiCallModal from '@/components/reusable/VapiCallModal';
-import TestAssistantModal from '@/components/reusable/TestAssistantModal';
+import ElevenLabsCallModal from '@/components/reusable/ElevenLabsCallModal';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -62,7 +61,6 @@ export default function DashboardPage() {
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false);
   const [recepcionistaError, setRecepcionistaError] = useState('');
   const [recepcionistaSuccess, setRecepcionistaSuccess] = useState('');
-  const [isVapiModalOpen, setIsVapiModalOpen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Función para detectar cambios en la configuración
@@ -432,7 +430,7 @@ export default function DashboardPage() {
     setIsLoadingVoices(true);
     try {
       const languageCode = language === 'es' ? 'es-ES' : 'en-US';
-      const response = await fetch(`${API_BASE_URL}/vapi/voices/language/${languageCode}`);
+      const response = await fetch(`${API_BASE_URL}/elevenlabs/voices/language/${languageCode}`);
       if (response.ok) {
         const voices = await response.json();
         setAvailableVoices(voices.value || voices);
@@ -547,12 +545,12 @@ export default function DashboardPage() {
     setRecepcionistaSuccess('');
     
     try {
-      // Actualizar el assistant en VAPI
+      // Actualizar el assistant en ElevenLabs
       if (!activeBusiness.assistant?.vapi_assistant_id) {
-        throw new Error('No se encontró el ID del assistant en VAPI');
+        throw new Error('No se encontró el ID del assistant en ElevenLabs');
       }
       
-      const assistant = await vapiService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
+      const assistant = await elevenlabsService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
         name: `${activeBusiness.name} - Recepcionista AI`,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -571,10 +569,10 @@ export default function DashboardPage() {
 
       updateBusiness(activeBusiness.id, updatedBusiness as any);
       setHasChanges(false);
-      setRecepcionistaSuccess('Asistente VAPI actualizado exitosamente.');
+      setRecepcionistaSuccess('Asistente de ElevenLabs actualizado exitosamente.');
     } catch (error: any) {
-      console.error('Error al actualizar asistente VAPI:', error);
-      setRecepcionistaError(error.message || 'Error al actualizar asistente VAPI.');
+      console.error('Error al actualizar asistente de ElevenLabs:', error);
+      setRecepcionistaError(error.message || 'Error al actualizar asistente de ElevenLabs.');
     } finally {
       setIsCreatingAssistant(false);
     }
@@ -598,8 +596,8 @@ export default function DashboardPage() {
     setRecepcionistaSuccess('');
 
     try {
-      // Crear assistant en VAPI
-      const assistant = await vapiService.createAssistant({
+      // Crear assistant en ElevenLabs
+      const assistant = await elevenlabsService.createAssistant({
         name: activeBusiness.name,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -617,11 +615,11 @@ export default function DashboardPage() {
       
       console.log('🚀 DEBUG - Assistant created:', assistant);
       console.log('🚀 DEBUG - Local assistant:', assistant.local_assistant);
-      console.log('🚀 DEBUG - VAPI assistant ID:', assistant.id);
+      console.log('🚀 DEBUG - ElevenLabs assistant ID:', assistant.id);
       
       const updatedBusiness = await apiService.updateBusiness(activeBusiness.id, {
         assistant_id: assistant.local_assistant.id, // ✅ Usar el ID del assistant local
-        vapi_assistant_id: assistant.id, // ✅ ID de VAPI
+        vapi_assistant_id: assistant.id, // ✅ ID de ElevenLabs (guardado en campo vapi_assistant_id por compatibilidad)
         ai_prompt: recepcionistaFormData.ai_prompt,
         ai_voice_id: recepcionistaFormData.ai_voice_id,
         ai_language: recepcionistaFormData.ai_language,
@@ -664,10 +662,10 @@ export default function DashboardPage() {
         setIsRefreshingBusiness(false);
       }
       
-      setRecepcionistaSuccess('Asistente VAPI creado y conectado exitosamente.');
+      setRecepcionistaSuccess('Asistente de ElevenLabs creado y conectado exitosamente.');
     } catch (error: any) {
-      console.error('Error al crear asistente VAPI:', error);
-      setRecepcionistaError(error.message || 'Error al crear asistente VAPI.');
+      console.error('Error al crear asistente de ElevenLabs:', error);
+      setRecepcionistaError(error.message || 'Error al crear asistente de ElevenLabs.');
     } finally {
       setIsCreatingAssistant(false);
     }
@@ -675,10 +673,10 @@ export default function DashboardPage() {
 
   const handleTestAssistant = () => {
     if (!activeBusiness?.assistant?.vapi_assistant_id) {
-      setRecepcionistaError('⚠️ Primero debes crear un assistant en VAPI. Completa el prompt, selecciona una voz y haz click en "Crear Assistant en VAPI".');
+      setRecepcionistaError('⚠️ Primero debes crear un assistant en ElevenLabs. Completa el prompt, selecciona una voz y haz click en "Crear Assistant en ElevenLabs".');
       return;
     }
-    setIsVapiModalOpen(true);
+    setShowTestAssistantModal(true);
   };
 
   const menuItems = [
@@ -1472,7 +1470,7 @@ export default function DashboardPage() {
                         </h3>
                         <div className="mt-2 text-sm text-blue-700">
                           <p>
-                            Nosotros manejamos toda la tecnología de VAPI por ti. Solo necesitas configurar:
+                            Nosotros manejamos toda la tecnología de ElevenLabs por ti. Solo necesitas configurar:
                           </p>
                           <ul className="mt-2 list-disc list-inside space-y-1">
                             <li>El comportamiento de tu recepcionista (prompt)</li>
@@ -1480,7 +1478,7 @@ export default function DashboardPage() {
                             <li>El idioma de comunicación</li>
                           </ul>
                           <p className="mt-2 font-medium">
-                            Nosotros nos encargamos de crear y mantener tu assistant en VAPI.
+                            Nosotros nos encargamos de crear y mantener tu assistant en ElevenLabs.
                           </p>
                         </div>
                       </div>
@@ -1717,18 +1715,12 @@ export default function DashboardPage() {
         </div>
       )}
       
-      {/* Modal de prueba de VAPI */}
-      <VapiCallModal 
-        isOpen={isVapiModalOpen} 
-        onClose={() => setIsVapiModalOpen(false)}
-        assistantId={activeBusiness?.assistant?.vapi_assistant_id}
-      />
-      
-      {/* Modal de Test Assistant */}
-      <TestAssistantModal
+      {/* Modal de Test Assistant - ElevenLabs */}
+      <ElevenLabsCallModal
         isOpen={showTestAssistantModal}
         onClose={() => setShowTestAssistantModal(false)}
-        businessId={activeBusiness?.id}
+        assistantId={activeBusiness?.assistant?.vapi_assistant_id}
+        businessName={activeBusiness?.name || 'Asistente'}
       />
       </div>
     </div>

@@ -5,12 +5,16 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Logger
+  Logger,
+  Param,
+  Inject,
+  forwardRef
 } from '@nestjs/common';
 import { WebhookGuard } from '../business/guards/webhook.guard';
 import { CallLogService } from '../business/services/call-log.service';
 import { BusinessService } from '../business/services/business.service';
 import { CallDirection, CallStatus } from '../business/entities/call-log.entity';
+import { AppointmentsService } from '../appointments/appointments.service';
 
 @Controller('webhooks')
 export class WebhookController {
@@ -19,6 +23,8 @@ export class WebhookController {
   constructor(
     private callLogService: CallLogService,
     private businessService: BusinessService,
+    @Inject(forwardRef(() => AppointmentsService))
+    private appointmentsService: AppointmentsService,
   ) {}
 
   @Post('twilio/call')
@@ -160,5 +166,61 @@ export class WebhookController {
     };
 
     return statusMap[vapiStatus] || CallStatus.ANSWERED;
+  }
+
+  @Post('elevenlabs/appointment/:businessId')
+  @HttpCode(HttpStatus.OK)
+  async handleElevenLabsAppointment(
+    @Param('businessId') businessId: string,
+    @Body() webhookData: any
+  ) {
+    this.logger.log('Webhook ElevenLabs recibido:', JSON.stringify(webhookData, null, 2));
+
+    try {
+      // Extraer datos del webhook de ElevenLabs
+      const { 
+        client_name, 
+        client_email, 
+        client_phone, 
+        service_type, 
+        appointment_date, 
+        appointment_time,
+        notes 
+      } = webhookData;
+
+      // Validar datos requeridos
+      if (!client_name || !client_email || !client_phone || !appointment_date || !appointment_time) {
+        this.logger.error('Datos incompletos en webhook');
+        return {
+          success: false,
+          message: 'Datos incompletos'
+        };
+      }
+
+      // Crear el appointment
+      const appointment = await this.appointmentsService.create({
+        clientName: client_name,
+        clientEmail: client_email,
+        clientPhone: client_phone,
+        serviceType: service_type || 'consulta',
+        appointmentDate: appointment_date,
+        appointmentTime: appointment_time,
+        notes: notes || `Creado desde ElevenLabs AI para business ${businessId}`
+      });
+
+      this.logger.log(`Appointment creado: ${appointment.id}`);
+
+      return {
+        success: true,
+        appointment_id: appointment.id,
+        message: 'Appointment creado y calendar invite enviado'
+      };
+    } catch (error) {
+      this.logger.error('Error procesando webhook ElevenLabs:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
   }
 }
