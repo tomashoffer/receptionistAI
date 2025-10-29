@@ -55,7 +55,7 @@ export default function StateSyncer() {
                 
                 if (businessResponse.ok) {
                   const businessData = await businessResponse.json();
-                  const businessesList = Array.isArray(businessData) ? businessData : [businessData];
+                  const businessesList = Array.isArray(businessData) ? businessData : businessData ? [businessData] : [];
                   setBusinesses(businessesList);
                   
                   // Set the first business as active by default
@@ -101,10 +101,21 @@ export default function StateSyncer() {
                       });
                     }, 100);
                   } else {
-                    console.log('🔍 StateSyncer: No hay negocios para establecer como activo');
+                    // Usuario autenticado pero sin negocios - esto es válido, especialmente para nuevos usuarios
+                    console.log('✅ StateSyncer: Usuario autenticado sin negocios (nuevo usuario). Pudiendo crear business.');
+                    setBusinesses([]);
+                    setActiveBusiness(null);
                   }
+                } else if (businessResponse.status === 404 || businessResponse.status === 403) {
+                  // El usuario no tiene businesses - esto es válido
+                  console.log('✅ StateSyncer: Usuario sin negocios (nuevo), estableciendo arrays vacíos');
+                  setBusinesses([]);
+                  setActiveBusiness(null);
                 } else {
-                  console.warn('StateSyncer: No se pudieron cargar los negocios, status:', businessResponse.status);
+                  console.warn('StateSyncer: Error cargando negocios, status:', businessResponse.status);
+                  // Aún así, establecer arrays vacíos para permitir que el usuario continúe
+                  setBusinesses([]);
+                  setActiveBusiness(null);
                 }
               } catch (error) {
                 console.error('StateSyncer: Error cargando negocios:', error);

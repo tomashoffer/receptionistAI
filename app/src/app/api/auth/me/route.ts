@@ -18,11 +18,16 @@ async function getJwtPublicKey() {
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = request.cookies.get('access_token')?.value;
+    // Intentar obtener el token con ambos nombres
+    const accessToken = request.cookies.get('accessToken')?.value || request.cookies.get('access_token')?.value;
     
     if (!accessToken) {
+      console.log('❌ No se encontró accessToken en las cookies');
+      console.log('Cookies disponibles:', request.cookies.getAll());
       return new NextResponse('No autorizado: No se encontró el token de acceso.', { status: 401 });
     }
+    
+    console.log('✅ AccessToken encontrado:', accessToken.substring(0, 20) + '...');
 
     // Securely decode the token locally to check the user's role first.
     const publicKey = await getJwtPublicKey();
@@ -47,12 +52,16 @@ export async function GET(request: NextRequest) {
     // If the user is NOT a guest, proceed with the existing logic.
     // Make a call to the backend to get the full user data
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    
+    // Obtener todas las cookies de la request
+    const cookieHeader = request.headers.get('cookie') || '';
+    
     const backendResponse = await fetch(`${backendUrl}/auth/me`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'Cookie': cookieHeader, // Pasar las cookies explícitamente
       },
-      credentials: 'include',
     });
 
     if (!backendResponse.ok) {

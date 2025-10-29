@@ -6,6 +6,7 @@ import { CallLogService } from '../business/services/call-log.service';
 import { BusinessService } from '../business/services/business.service';
 import { WebhookGuard } from '../business/guards/webhook.guard';
 import { AppointmentsModule } from '../appointments/appointments.module';
+import { GoogleCalendarModule } from '../google-calendar/google-calendar.module';
 
 import { CallLog } from '../business/entities/call-log.entity';
 import { Business } from '../business/entities/business.entity';
@@ -15,6 +16,7 @@ import { BusinessUser } from '../business/entities/business-user.entity';
   imports: [
     TypeOrmModule.forFeature([CallLog, Business, BusinessUser]),
     AppointmentsModule,
+    GoogleCalendarModule,
   ],
   controllers: [WebhookController],
   providers: [

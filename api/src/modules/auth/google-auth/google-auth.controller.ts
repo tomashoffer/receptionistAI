@@ -50,7 +50,8 @@ export class GoogleAuthController {
     }
 
     // Set the access token cookie with the correct domain and SameSite attributes.
-    res.cookie('accessToken', accessToken, {
+    // IMPORTANTE: usar 'access_token' (no 'accessToken') porque el JwtStrategy lo busca así
+    res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax', 
@@ -70,7 +71,7 @@ export class GoogleAuthController {
       });
     }
 
-    // Redirect the user directly to the main application page on the frontend.
-    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/`);
+    // Redirect the user directly to the dashboard after successful login.
+    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard`);
   }
 }

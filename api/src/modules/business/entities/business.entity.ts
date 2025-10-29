@@ -109,10 +109,15 @@ export class Business {
   // Integraciones
   @Column({ type: 'json', nullable: true })
   google_calendar_config: {
-    calendar_id: string;
-    access_token: string;
-    refresh_token: string;
-    enabled: boolean;
+    connected: boolean;
+    email?: string;
+    access_token?: string;
+    refresh_token?: string;
+    expires_at?: string;
+    token_type?: string;
+    scope?: string;
+    calendar_id?: string;
+    enabled?: boolean;
   };
 
   @Column({ type: 'json', nullable: true })

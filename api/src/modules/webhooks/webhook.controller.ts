@@ -15,6 +15,7 @@ import { CallLogService } from '../business/services/call-log.service';
 import { BusinessService } from '../business/services/business.service';
 import { CallDirection, CallStatus } from '../business/entities/call-log.entity';
 import { AppointmentsService } from '../appointments/appointments.service';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 
 @Controller('webhooks')
 export class WebhookController {
@@ -25,6 +26,7 @@ export class WebhookController {
     private businessService: BusinessService,
     @Inject(forwardRef(() => AppointmentsService))
     private appointmentsService: AppointmentsService,
+    private googleCalendarService: GoogleCalendarService,
   ) {}
 
   @Post('twilio/call')
@@ -209,6 +211,27 @@ export class WebhookController {
       });
 
       this.logger.log(`Appointment creado: ${appointment.id}`);
+
+      // Intentar crear evento en Google Calendar si está conectado
+      try {
+        const business = await this.businessService.findByPhoneNumber(webhookData.phone || businessId);
+        if (business?.google_calendar_config && (business.google_calendar_config as any).connected) {
+          this.logger.log('Google Calendar conectado, creando evento...');
+          await this.googleCalendarService.createEvent(businessId, {
+            date,
+            time,
+            clientName: name,
+            clientEmail: email,
+            clientPhone: phone,
+            service: service || 'consulta',
+            notes: notes || '',
+          });
+          this.logger.log('Evento creado en Google Calendar');
+        }
+      } catch (error) {
+        this.logger.error('Error creando evento en Google Calendar (no crítico):', error);
+        // No fallar el webhook si Google Calendar falla
+      }
 
       return {
         success: true,
