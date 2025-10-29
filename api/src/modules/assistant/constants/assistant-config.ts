@@ -57,7 +57,7 @@ export const DEFAULT_TOOLS: ToolConfig[] = [
       },
       required: ['name', 'email', 'phone', 'service', 'date', 'time']
     },
-    webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/vapi-appointment',
+    webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/elevenlabs-appointment',
     enabled: true,
     default_required_fields: ['name', 'email', 'phone', 'service', 'date', 'time']
   },

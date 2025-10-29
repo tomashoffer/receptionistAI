@@ -90,6 +90,7 @@ export class Assistant {
   // Configuración de herramientas (Tools)
   @Column({ type: 'json', nullable: true })
   tools: Array<{
+    id?: string; // ID de la tool en ElevenLabs
     name: string;
     description: string;
     parameters: any; // JSON schema para los parámetros

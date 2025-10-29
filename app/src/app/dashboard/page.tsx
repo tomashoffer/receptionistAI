@@ -3,18 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { apiService } from '@/services/api.service';
-import { vapiService } from '@/services/vapi.service';
-import { useRouter, usePathname } from 'next/navigation';
+import { elevenlabsService } from '@/services/vapi.service';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { PlusIcon, CheckIcon, PencilIcon, Bars3Icon, PhoneIcon } from '@heroicons/react/24/outline';
 import LogoutButton from '@/components/LogoutButton';
-import VapiCallModal from '@/components/reusable/VapiCallModal';
-import TestAssistantModal from '@/components/reusable/TestAssistantModal';
+import AppointmentsTab from '@/components/reusable/AppointmentsTab';
+import Sidebar from '@/components/reusable/Sidebar';
+import Header from '@/components/reusable/Header';
+import OverviewTab from '@/components/dashboard/OverviewTab';
+import BusinessesTab from '@/components/dashboard/BusinessesTab';
+import SystemConfigTab from '@/components/dashboard/SystemConfigTab';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function DashboardPage() {
   const { user, businesses, activeBusiness, isLoading, isLoggingOut, setActiveBusiness, setBusinesses, reset, updateBusiness } = useUserStore();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   
   // Función para obtener el mensaje de loading según la ruta
   const getLoadingMessage = () => {
@@ -25,9 +30,37 @@ export default function DashboardPage() {
     return 'Cargando...';
   };
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Función auxiliar para leer el tab de la URL
+  const getTabFromUrl = (): string => {
+    if (searchParams) {
+      const tab = searchParams.get('tab');
+      if (tab && ['overview', 'businesses', 'appointments', 'calls', 'system-config'].includes(tab)) {
+        return tab;
+      }
+    }
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      if (tab && ['overview', 'businesses', 'appointments', 'calls', 'system-config'].includes(tab)) {
+        return tab;
+      }
+    }
+    return 'overview';
+  };
+  
+  const [activeTab, setActiveTab] = useState(() => getTabFromUrl());
+
+  // Sincronizar el tab cuando cambian los query params
+  useEffect(() => {
+    const newTab = getTabFromUrl();
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  }, [searchParams]);
   const [editingBusiness, setEditingBusiness] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isBusinessDropdownOpen, setIsBusinessDropdownOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     phone_number: '',
@@ -62,7 +95,6 @@ export default function DashboardPage() {
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false);
   const [recepcionistaError, setRecepcionistaError] = useState('');
   const [recepcionistaSuccess, setRecepcionistaSuccess] = useState('');
-  const [isVapiModalOpen, setIsVapiModalOpen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Función para detectar cambios en la configuración
@@ -86,10 +118,24 @@ export default function DashboardPage() {
     const hasAnyChanges = hasPromptChanged || hasVoiceChanged || hasLanguageChanged || hasFirstMessageChanged || hasFieldsChanged;
     setHasChanges(hasAnyChanges);
   };
-  const [showTestAssistantModal, setShowTestAssistantModal] = useState(false);
 
   // Helper function para determinar si hay assistant (usando solo store global)
   const hasAssistant = !!activeBusiness?.assistant_id;
+
+  // Cargar script del widget de ElevenLabs
+  useEffect(() => {
+    if (hasAssistant) {
+      const existingScript = document.querySelector('script[src*="convai-widget-embed"]');
+      
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+        script.async = true;
+        script.type = 'text/javascript';
+        document.body.appendChild(script);
+      }
+    }
+  }, [hasAssistant]);
 
   // Helper function para obtener el token de autenticación
   const getAuthToken = async () => {
@@ -108,7 +154,7 @@ export default function DashboardPage() {
   // Cargar datos del business activo en el formulario del recepcionista
   useEffect(() => {
     const loadBusinessData = async () => {
-      if (activeBusiness) {
+    if (activeBusiness) {
         // Primero intentar cargar el prompt personalizado desde el backend
         try {
           const token = await getAuthToken();
@@ -125,7 +171,7 @@ export default function DashboardPage() {
           
           if (response.ok) {
             const data = await response.json();
-            setRecepcionistaFormData({
+      setRecepcionistaFormData({
               ai_prompt: activeBusiness.assistant?.prompt || data.prompt || '',
               ai_voice_id: activeBusiness.assistant?.voice_id || '',
               ai_language: activeBusiness.assistant?.language || 'es',
@@ -193,7 +239,7 @@ export default function DashboardPage() {
         } catch (error) {
           console.error('Error fetching business:', error);
           // Fallback al business sin relación
-          setActiveBusiness(selectedBusiness);
+      setActiveBusiness(selectedBusiness);
         }
       }
     }
@@ -300,7 +346,7 @@ export default function DashboardPage() {
         properties: allFields,
         required: Object.keys(allFields)
       },
-      webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/vapi-appointment',
+      webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/elevenlabs-appointment',
       enabled: true
     };
   };
@@ -432,7 +478,7 @@ export default function DashboardPage() {
     setIsLoadingVoices(true);
     try {
       const languageCode = language === 'es' ? 'es-ES' : 'en-US';
-      const response = await fetch(`${API_BASE_URL}/vapi/voices/language/${languageCode}`);
+      const response = await fetch(`${API_BASE_URL}/elevenlabs/voices/language/${languageCode}`);
       if (response.ok) {
         const voices = await response.json();
         setAvailableVoices(voices.value || voices);
@@ -547,19 +593,19 @@ export default function DashboardPage() {
     setRecepcionistaSuccess('');
     
     try {
-      // Actualizar el assistant en VAPI
+      // Actualizar el assistant en ElevenLabs
       if (!activeBusiness.assistant?.vapi_assistant_id) {
-        throw new Error('No se encontró el ID del assistant en VAPI');
+        throw new Error('No se encontró el ID del assistant en ElevenLabs');
       }
       
-      const assistant = await vapiService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
-        name: `${activeBusiness.name} - Recepcionista AI`,
+      const assistant = await elevenlabsService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
+        name: `${activeBusiness.name}`,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
         language: recepcionistaFormData.ai_language,
         firstMessage: recepcionistaFormData.first_message,
-        tools: [generateCreateAppointmentTool()],
-        required_fields: recepcionistaFormData.required_fields
+        required_fields: recepcionistaFormData.required_fields,
+        businessId: activeBusiness.id // ✅ businessId para actualizar en BD
       });
 
       // Actualizar el business con la nueva configuración
@@ -571,10 +617,10 @@ export default function DashboardPage() {
 
       updateBusiness(activeBusiness.id, updatedBusiness as any);
       setHasChanges(false);
-      setRecepcionistaSuccess('Asistente VAPI actualizado exitosamente.');
+      setRecepcionistaSuccess('Asistente de ElevenLabs actualizado exitosamente.');
     } catch (error: any) {
-      console.error('Error al actualizar asistente VAPI:', error);
-      setRecepcionistaError(error.message || 'Error al actualizar asistente VAPI.');
+      console.error('Error al actualizar asistente de ElevenLabs:', error);
+      setRecepcionistaError(error.message || 'Error al actualizar asistente de ElevenLabs.');
     } finally {
       setIsCreatingAssistant(false);
     }
@@ -598,8 +644,8 @@ export default function DashboardPage() {
     setRecepcionistaSuccess('');
 
     try {
-      // Crear assistant en VAPI
-      const assistant = await vapiService.createAssistant({
+      // Crear assistant en ElevenLabs
+      const assistant = await elevenlabsService.createAssistant({
         name: activeBusiness.name,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -617,11 +663,11 @@ export default function DashboardPage() {
       
       console.log('🚀 DEBUG - Assistant created:', assistant);
       console.log('🚀 DEBUG - Local assistant:', assistant.local_assistant);
-      console.log('🚀 DEBUG - VAPI assistant ID:', assistant.id);
+      console.log('🚀 DEBUG - ElevenLabs assistant ID:', assistant.id);
       
       const updatedBusiness = await apiService.updateBusiness(activeBusiness.id, {
         assistant_id: assistant.local_assistant.id, // ✅ Usar el ID del assistant local
-        vapi_assistant_id: assistant.id, // ✅ ID de VAPI
+        vapi_assistant_id: assistant.id, // ✅ ID de ElevenLabs (guardado en campo vapi_assistant_id por compatibilidad)
         ai_prompt: recepcionistaFormData.ai_prompt,
         ai_voice_id: recepcionistaFormData.ai_voice_id,
         ai_language: recepcionistaFormData.ai_language,
@@ -664,37 +710,31 @@ export default function DashboardPage() {
         setIsRefreshingBusiness(false);
       }
       
-      setRecepcionistaSuccess('Asistente VAPI creado y conectado exitosamente.');
+      setRecepcionistaSuccess('Asistente de ElevenLabs creado y conectado exitosamente.');
     } catch (error: any) {
-      console.error('Error al crear asistente VAPI:', error);
-      setRecepcionistaError(error.message || 'Error al crear asistente VAPI.');
+      console.error('Error al crear asistente de ElevenLabs:', error);
+      setRecepcionistaError(error.message || 'Error al crear asistente de ElevenLabs.');
     } finally {
       setIsCreatingAssistant(false);
     }
   };
 
-  const handleTestAssistant = () => {
-    if (!activeBusiness?.assistant?.vapi_assistant_id) {
-      setRecepcionistaError('⚠️ Primero debes crear un assistant en VAPI. Completa el prompt, selecciona una voz y haz click en "Crear Assistant en VAPI".');
-      return;
-    }
-    setIsVapiModalOpen(true);
-  };
 
   const menuItems = [
-    { id: 'overview', label: 'Resumen', action: () => setActiveTab('overview') },
-    { id: 'businesses', label: 'Mis Negocios', action: () => setActiveTab('businesses') },
-    { id: 'calls', label: 'Llamadas', action: () => setActiveTab('calls') },
-    { id: 'system-config', label: 'Mi Recepcionista', action: () => setActiveTab('system-config') },
+    { id: 'overview', label: 'Resumen', action: () => { setActiveTab('overview'); router.replace('/dashboard?tab=overview'); } },
+    { id: 'businesses', label: 'Mis Negocios', action: () => { setActiveTab('businesses'); router.replace('/dashboard?tab=businesses'); } },
+    { id: 'appointments', label: 'Citas / Appointments', action: () => { setActiveTab('appointments'); router.replace('/dashboard?tab=appointments'); } },
+    { id: 'calls', label: 'Llamadas', action: () => { setActiveTab('calls'); router.replace('/dashboard?tab=calls'); } },
+    { id: 'system-config', label: 'Mi Recepcionista', action: () => { setActiveTab('system-config'); router.replace('/dashboard?tab=system-config'); } },
     { id: 'account-config', label: 'Configuración de Mi Cuenta', action: () => router.push('/dashboard/account-config') },
   ];
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{getLoadingMessage()}</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">{getLoadingMessage()}</p>
         </div>
       </div>
     );
@@ -702,7 +742,7 @@ export default function DashboardPage() {
 
   if (!activeBusiness) {
     return (
-      <div className="min-h-screen bg-gray-50 flex relative">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex relative">
         {/* Overlay para cerrar el menú */}
         {isMenuOpen && (
           <div 
@@ -712,10 +752,10 @@ export default function DashboardPage() {
         )}
         
         {/* Sidebar */}
-        <div className={`${isMenuOpen ? 'w-64' : 'w-0'} transition-all duration-300 ease-in-out overflow-hidden bg-white shadow-lg relative z-20`}>
+        <div className={`${isMenuOpen ? 'w-64' : 'w-0'} transition-all duration-300 ease-in-out overflow-hidden bg-white dark:bg-gray-800 shadow-lg relative z-20`}>
           <div className="p-6">
             <div className="mb-8">
-              <h2 className="text-xl font-bold text-gray-900">Menú</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Menú</h2>
             </div>
             <div className="space-y-2">
               {menuItems.map((item) => (
@@ -727,14 +767,14 @@ export default function DashboardPage() {
                   }}
                   className={`block w-full text-left px-4 py-3 rounded-md font-medium text-sm transition-colors ${
                     activeTab === item.id
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   {item.label}
                 </button>
               ))}
-              <div className="border-t border-gray-200 pt-2 mt-4">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-4">
                 <div onClick={() => setIsMenuOpen(false)}>
                   <LogoutButton />
                 </div>
@@ -746,20 +786,20 @@ export default function DashboardPage() {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="bg-white shadow">
+          <header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-900">
             <div className="px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center py-6">
                 <div className="flex items-center">
                   <button
                     onClick={() => setIsMenuOpen(true)}
-                    className="lg:hidden mr-4 p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+                    className="lg:hidden mr-4 p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <Bars3Icon className="h-6 w-6" />
                   </button>
-                  <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">Hola, {user?.email}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Hola, {user?.email}</span>
                   <LogoutButton />
                 </div>
               </div>
@@ -767,23 +807,23 @@ export default function DashboardPage() {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto dark:bg-gray-900">
             <div className="py-6">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="space-y-6">
                   {/* Empty State */}
                   <div className="text-center py-12">
-                    <div className="mx-auto h-24 w-24 text-gray-400">
+                    <div className="mx-auto h-24 w-24 text-gray-400 dark:text-gray-600">
                       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No tienes negocios</h3>
-                    <p className="mt-1 text-sm text-gray-500">Comienza creando tu primer negocio para usar el asistente de voz.</p>
+                    <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No tienes negocios</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Comienza creando tu primer negocio para usar el asistente de voz.</p>
                     <div className="mt-6">
                       <button
                         onClick={() => router.push('/dashboard/business/new')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
                         Agregar Business
@@ -800,7 +840,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex relative">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex relative">
       {/* Overlay para cerrar el menú */}
       {isMenuOpen && (
         <div 
@@ -810,217 +850,32 @@ export default function DashboardPage() {
       )}
       
       {/* Sidebar */}
-      <div className={`${isMenuOpen ? 'w-64' : 'w-0'} transition-all duration-300 ease-in-out overflow-hidden bg-white shadow-lg relative z-20`}>
-        <div className="p-6">
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900">Menú</h2>
-          </div>
-          <div className="space-y-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  item.action();
-                  setIsMenuOpen(false);
-                }}
-                className={`block w-full text-left px-4 py-3 rounded-md font-medium text-sm transition-colors ${
-                  activeTab === item.id
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-            <div className="border-t border-gray-200 pt-2 mt-4">
-              <div onClick={() => setIsMenuOpen(false)}>
-                <LogoutButton />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Sidebar 
+        activeTab={activeTab}
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        menuItems={menuItems}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow">
-          <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="text-gray-600 hover:text-gray-900 p-2"
-                  title="Menú"
-                >
-                  <Bars3Icon className="h-6 w-6" />
-                </button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                    {activeBusiness.name}
-              </h1>
-              <p className="text-gray-600">
-                    {activeBusiness.industry} • {activeBusiness.phone_number}
-              </p>
-            </div>
-                
-                {/* Selector de Negocio */}
-                {businesses.length > 1 && (
-                  <div className="ml-6">
-                    <select
-                      value={activeBusiness.id}
-                      onChange={(e) => handleSetActiveBusiness(e.target.value)}
-                      className="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      {businesses.map((business: any) => (
-                        <option key={business.id} value={business.id}>
-                          {business.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-              
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">
-                {user?.first_name} {user?.last_name}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        user={user}
+        activeBusiness={activeBusiness}
+        businesses={businesses}
+        isBusinessDropdownOpen={isBusinessDropdownOpen}
+        setIsBusinessDropdownOpen={setIsBusinessDropdownOpen}
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        handleSetActiveBusiness={handleSetActiveBusiness}
+      />
 
       {/* Main Content */}
-      <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8 dark:bg-gray-900">
         <div className="py-6">
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">✓</span>
-                        </div>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Estado del Negocio
-                          </dt>
-                          <dd className="text-lg font-medium text-gray-900 capitalize">
-                            {activeBusiness.status}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">📞</span>
-                        </div>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            Número de Teléfono
-                          </dt>
-                          <dd className="text-lg font-medium text-gray-900">
-                            {activeBusiness.phone_number}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">🤖</span>
-                        </div>
-                      </div>
-                      <div className="ml-5 w-0 flex-1">
-                        <dl>
-                          <dt className="text-sm font-medium text-gray-500 truncate">
-                            AI Configurado
-                          </dt>
-                          <dd className="text-lg font-medium text-gray-900">
-                            {hasAssistant ? 'Configurado' : 'No configurado'}
-                          </dd>
-                        </dl>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white shadow rounded-lg">
-                <div className="px-4 py-5 sm:p-6">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    Configuración Actual del AI
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Prompt del AI
-                      </label>
-                      <div className="mt-1 p-3 bg-gray-50 rounded-md">
-                        <p className="text-sm text-gray-600">
-                          {activeBusiness.assistant?.prompt ? 
-                            `${activeBusiness.assistant.prompt.substring(0, 100)}${activeBusiness.assistant.prompt.length > 100 ? '...' : ''}` : 
-                            'No configurado'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Voz
-                        </label>
-                        <p className="mt-1 text-sm text-gray-600">
-                          {activeBusiness.assistant?.voice_id ? 
-                            (() => {
-                              // Extraer el nombre de la voz del ID
-                              const voiceName = activeBusiness.assistant.voice_id.includes('Alvaro') ? 'Álvaro (Masculina)' :
-                                               activeBusiness.assistant.voice_id.includes('Esperanza') ? 'Esperanza (Femenina)' :
-                                               activeBusiness.assistant.voice_id.includes('Hana') ? 'Hana (Femenina)' :
-                                               activeBusiness.assistant.voice_id;
-                              return voiceName;
-                            })() : 
-                            'No configurado'
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Idioma
-                        </label>
-                        <p className="mt-1 text-sm text-gray-600">
-                          {activeBusiness.assistant?.language ? 
-                            (activeBusiness.assistant.language === 'es' ? 'Español' : 
-                             activeBusiness.assistant.language === 'en' ? 'Inglés' : 
-                             activeBusiness.assistant.language) : 
-                            'No configurado'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <OverviewTab activeBusiness={activeBusiness} hasAssistant={hasAssistant} />
           )}
 
           {activeTab === 'test' && (
@@ -1034,24 +889,21 @@ export default function DashboardPage() {
                 </p>
                 
                 <div className="text-center">
-                  <button
-                    onClick={() => setShowTestAssistantModal(true)}
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 font-medium"
-                  >
-                    Abrir Test Assistant
-                  </button>
+                  <p className="text-gray-600">
+                    El widget de prueba aparecerá directamente en la sección de "Mi Recepcionista" si tienes un assistant configurado.
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'calls' && (
-            <div className="bg-white shadow rounded-lg">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
                   Historial de Llamadas
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400">
                   Aquí verás el historial de llamadas atendidas por tu AI.
                 </p>
               </div>
@@ -1059,514 +911,45 @@ export default function DashboardPage() {
           )}
 
           {activeTab === 'businesses' && (
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-xl leading-6 font-medium text-gray-900">
-                      Mis Negocios
-                    </h3>
-                    <p className="text-gray-600 mt-2">
-                      Gestiona todos tus negocios desde aquí.
-                    </p>
-                  </div>
-            <button
-              onClick={() => router.push('/dashboard/business/new')}
-              className="bg-green-600 text-white p-2 rounded-full hover:bg-green-700 shadow-sm hover:shadow-md transition-all"
-              title="Crear Nuevo Negocio"
-            >
-              <PlusIcon className="h-5 w-5" />
-            </button>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {businesses.map((business: any) => (
-                    <div key={business.id} className={`border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow ${
-                      business.id === activeBusiness.id ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h4 className="text-lg font-medium text-gray-900">{business.name}</h4>
-                            {business.id === activeBusiness.id && (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
-                                Activo
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600">{business.industry} • {business.phone_number}</p>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
-                            business.status === 'active' ? 'bg-green-100 text-green-800' : 
-                            business.status === 'trial' ? 'bg-yellow-100 text-yellow-800' : 
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {business.status}
-                          </span>
-                        </div>
-                        <div className="flex space-x-2">
-                          {business.id !== activeBusiness.id && (
-                            <button
-                              onClick={() => handleSetActiveBusiness(business.id)}
-                              className="bg-gray-600 text-white p-2 rounded-md hover:bg-gray-700"
-                              title="Activar"
-                            >
-                              <CheckIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleEditBusiness(business)}
-                            className="bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700"
-                            title="Editar"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <BusinessesTab 
+              businesses={businesses}
+              activeBusiness={activeBusiness}
+              router={router}
+              handleSetActiveBusiness={handleSetActiveBusiness}
+              handleEditBusiness={handleEditBusiness}
+            />
           )}
 
-          {activeTab === 'system-config' && (
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                {!activeBusiness ? (
-                  // Estado vacío cuando no hay business
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-24 w-24 text-gray-400">
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">No tienes negocios</h3>
-                    <p className="mt-1 text-sm text-gray-500">Comienza creando tu primer negocio para usar el asistente de voz.</p>
-                    <div className="mt-6">
-                      <button
-                        onClick={() => router.push('/dashboard/business/new')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        Agregar Business
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // Contenido normal cuando hay business
-                  <>
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Mi Recepcionista - {activeBusiness?.name}
-                    </h3>
-                    <p className="text-gray-600 mb-6">
-                      Configura el comportamiento de tu recepcionista AI.
-                    </p>
-                    
-                    {/* Mensajes de error y éxito */}
-                    {recepcionistaError && (
-                      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-red-600">{recepcionistaError}</p>
-                      </div>
-                    )}
-                    {recepcionistaSuccess && (
-                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-green-600">{recepcionistaSuccess}</p>
-                      </div>
-                    )}
-                    
-                    {/* Estado del Assistant */}
-                    <div className="mb-6 p-4 rounded-lg border">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-3 h-3 rounded-full ${
-                            hasAssistant ? 'bg-green-500' : 'bg-gray-400'
-                          }`}></div>
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {hasAssistant ? 'Assistant Configurado' : 'Sin Assistant'}
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              {hasAssistant 
-                                ? `ID: ${activeBusiness?.assistant_id?.substring(0, 8)}...` 
-                                : 'Crea un assistant para comenzar'
-                              }
-                            </p>
-                          </div>
-                        </div>
-                        {hasAssistant && (
-                          <div className="flex items-center space-x-2 text-sm text-green-600">
-                            <CheckIcon className="w-4 h-4" />
-                            <span>Listo para usar</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Formulario de configuración directamente aquí */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Columna izquierda - Prompt */}
-                      <div className="space-y-4">
-                         {/* First Message */}
-                         <div>
-                          <label htmlFor="first_message" className="block text-sm font-medium text-gray-700 mb-2">
-                            Mensaje de Bienvenida
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              id="first_message"
-                              name="first_message"
-                              value={recepcionistaFormData.first_message}
-                              onChange={handleRecepcionistaInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black"
-                              placeholder="¡Hola! ¿En qué puedo ayudarte?"
-                            />
-                            <button
-                              type="button"
-                              onClick={generateFirstMessage}
-                              className="absolute top-2 right-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-                            >
-                              Generar
-                            </button>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-500">
-                            Primer mensaje que dirá el asistente cuando reciba una llamada.
-                          </p>
-                        </div>
-                        {/* AI Prompt */}
-                        <div>
-                          <label htmlFor="ai_prompt" className="block text-sm font-medium text-gray-700 mb-2">
-                            Comportamiento del Recepcionista
-                          </label>
-                          <div className="relative">
-                            <textarea
-                              id="ai_prompt"
-                              name="ai_prompt"
-                              rows={20}
-                              value={recepcionistaFormData.ai_prompt}
-                              onChange={handleRecepcionistaInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black resize-none"
-                              placeholder="Define cómo quieres que tu recepcionista AI interactúe con los clientes..."
-                            />
-                            <button
-                              type="button"
-                              onClick={updatePromptWithCurrentFields}
-                              className="absolute top-3 right-3 px-3 py-1 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-                            >
-                              Generar Prompt
-                            </button>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-500">
-                            Describe el comportamiento, tono y información que debe proporcionar tu recepcionista.
-                          </p>
-                        </div>
-
-                       
-                      </div>
-
-                      {/* Columna derecha - Configuración */}
-                      <div className="space-y-6">
-
-                  {/* Language Selection */}
-                  <div>
-                    <label htmlFor="ai_language" className="block text-sm font-medium text-gray-700 mb-2">
-                      Idioma
-                    </label>
-                    <select
-                      id="ai_language"
-                      name="ai_language"
-                      value={recepcionistaFormData.ai_language}
-                      onChange={handleRecepcionistaInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black"
-                    >
-                      <option value="es">Español</option>
-                      <option value="en">English</option>
-                    </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Selecciona el idioma principal para tu recepcionista AI.
-                    </p>
-                  </div>
-
-                  {/* Voice Selection */}
-                  <div>
-                    <label htmlFor="ai_voice_id" className="block text-sm font-medium text-gray-700 mb-2">
-                      Voz del Asistente
-                    </label>
-                    <select
-                      id="ai_voice_id"
-                      name="ai_voice_id"
-                      value={recepcionistaFormData.ai_voice_id}
-                      onChange={handleRecepcionistaInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black"
-                      disabled={isLoadingVoices}
-                    >
-                      <option value="">{isLoadingVoices ? 'Cargando voces...' : 'Seleccionar voz...'}</option>
-                      {availableVoices.map((voice) => (
-                        <option key={voice.id} value={voice.id}>
-                          {voice.name} ({voice.gender === 'male' ? 'Masculina' : 'Femenina'} - {voice.provider === 'azure' ? 'Azure' : voice.provider === 'elevenlabs' ? 'ElevenLabs' : 'Vapi'})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                      Selecciona la voz que utilizará tu recepcionista AI para comunicarse.
-                    </p>
-                  </div>
-
-                  {/* Tools Configuration */}
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Configuración de Herramientas</h3>
-                    
-                    {/* Required Fields for create_appointment */}
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Campos requeridos para crear citas
-                      </label>
-                      <div className="space-y-2">
-                        {/* Campos predefinidos */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_name"
-                              checked={isFieldRequired('name')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Nombre</span>
-                          </label>
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_email"
-                              checked={isFieldRequired('email')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Email</span>
-                          </label>
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_phone"
-                              checked={isFieldRequired('phone')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Teléfono</span>
-                          </label>
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_service"
-                              checked={isFieldRequired('service')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Servicio</span>
-                          </label>
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_date"
-                              checked={isFieldRequired('date')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Fecha</span>
-                          </label>
-                          <label className="flex items-center p-1 rounded-md hover:bg-gray-50 transition-colors">
-                            <input
-                              type="checkbox"
-                              name="required_time"
-                              checked={isFieldRequired('time')}
-                              onChange={handleRequiredFieldChange}
-                              className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                            />
-                            <span className="ml-2 text-sm text-gray-700">Hora</span>
-                          </label>
-                        </div>
-                        
-                        {/* Campos personalizados integrados */}
-                        {recepcionistaFormData.required_fields?.filter(field => isCustomField(field)).map((field) => (
-                          <div key={getFieldName(field)} className="flex items-center justify-between p-1 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors">
-                            <div className="flex items-center space-x-3">
-                              <input
-                                type="checkbox"
-                                name={`required_${getFieldName(field)}`}
-                                checked={true}
-                                onChange={() => handleRemoveCustomField(getFieldName(field))}
-                                className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                              />
-                              <span className="text-sm font-medium text-gray-800 capitalize">{getFieldLabel(field)}</span>
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-200 text-blue-800">
-                                {getFieldType(field)}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCustomField(getFieldName(field))}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded-full transition-colors"
-                              title="Eliminar campo"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                        
-                        {/* Agregar campo personalizado */}
-                        <div className="p-2 bg-gray-50 rounded-md border border-gray-200">
-                          <div className="flex space-x-2">
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                value={newFieldName}
-                                onChange={(e) => setNewFieldName(e.target.value)}
-                                placeholder="Nombre del campo (ej: edad, dirección...)"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black text-sm"
-                                onKeyPress={(e) => e.key === 'Enter' && handleAddCustomField()}
-                              />
-                            </div>
-                            <div className="w-20">
-                              <select
-                                value={newFieldType}
-                                onChange={(e) => setNewFieldType(e.target.value)}
-                                className="w-full px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black text-sm"
-                              >
-                                <option value="text">Texto</option>
-                                <option value="number">Número</option>
-                                <option value="email">Email</option>
-                                <option value="phone">Teléfono</option>
-                                <option value="date">Fecha</option>
-                              </select>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleAddCustomField}
-                              disabled={!newFieldName.trim()}
-                              className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="mt-2 text-sm text-gray-500">
-                        Selecciona qué información debe recopilar el asistente antes de crear una cita.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Información del Plan */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-blue-800">
-                          ¿Cómo funciona nuestro servicio?
-                        </h3>
-                        <div className="mt-2 text-sm text-blue-700">
-                          <p>
-                            Nosotros manejamos toda la tecnología de VAPI por ti. Solo necesitas configurar:
-                          </p>
-                          <ul className="mt-2 list-disc list-inside space-y-1">
-                            <li>El comportamiento de tu recepcionista (prompt)</li>
-                            <li>La voz que prefieres</li>
-                            <li>El idioma de comunicación</li>
-                          </ul>
-                          <p className="mt-2 font-medium">
-                            Nosotros nos encargamos de crear y mantener tu assistant en VAPI.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row sm:justify-center gap-3 pt-4 border-t border-gray-200">
-                  {/* Botón de Crear - Solo si NO hay asistente */}
-                  {!hasAssistant && (
-                    <button
-                      type="button"
-                      onClick={handleCreateAssistant}
-                      disabled={isCreatingAssistant || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id}
-                      className={`px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium ${
-                        isCreatingAssistant || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {isCreatingAssistant ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Creando...</span>
-                        </>
-                      ) : (
-                        <span>Crear Assistant</span>
-                      )}
-                    </button>
-                  )}
-                  
-                  {/* Botón de Editar - Solo si YA hay asistente Y hay cambios */}
-                  {hasAssistant && (
-                    <button
-                      type="button"
-                      onClick={handleUpdateAssistant}
-                      disabled={isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id}
-                      className={`px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium ${
-                        isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-orange-600 text-white hover:bg-orange-700'
-                      }`}
-                    >
-                      {isCreatingAssistant ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Actualizando...</span>
-                        </>
-                      ) : (
-                        <span>Editar Assistant</span>
-                      )}
-                    </button>
-                  )}
-                  
-                  {/* Botón de Test - Solo si YA hay asistente */}
-                  {hasAssistant && (
-                    <button
-                      type="button"
-                      onClick={handleTestAssistant}
-                      className="px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      <PhoneIcon className="w-4 h-4" />
-                      <span>Test Assistant</span>
-                    </button>
-                  )}
-                </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-4 py-5 sm:p-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                  Mi Recepcionista
-                </h3>
-                <p className="text-gray-600">
-                  Configura los detalles de tu negocio y el comportamiento del AI.
-                </p>
-              </div>
-            </div>
+          {(activeTab === 'system-config' || activeTab === 'settings') && (
+            <SystemConfigTab
+              activeBusiness={activeBusiness}
+              hasAssistant={hasAssistant}
+              API_BASE_URL={API_BASE_URL}
+              recepcionistaFormData={recepcionistaFormData}
+              setRecepcionistaFormData={setRecepcionistaFormData}
+              availableVoices={availableVoices}
+              isLoadingVoices={isLoadingVoices}
+              newFieldName={newFieldName}
+              setNewFieldName={setNewFieldName}
+              newFieldType={newFieldType}
+              setNewFieldType={setNewFieldType}
+              isSavingRecepcionista={isSavingRecepcionista}
+              isCreatingAssistant={isCreatingAssistant}
+              setIsCreatingAssistant={setIsCreatingAssistant}
+              recepcionistaError={recepcionistaError}
+              setRecepcionistaError={setRecepcionistaError}
+              recepcionistaSuccess={recepcionistaSuccess}
+              setRecepcionistaSuccess={setRecepcionistaSuccess}
+              hasChanges={hasChanges}
+              setHasChanges={setHasChanges}
+              generateCreateAppointmentTool={generateCreateAppointmentTool}
+              updateBusiness={updateBusiness}
+              elevenlabsService={elevenlabsService}
+              apiService={apiService}
+              loadVoicesByLanguage={loadVoicesByLanguage}
+              updatePromptWithCurrentFields={updatePromptWithCurrentFields}
+              generateFirstMessage={generateFirstMessage}
+            />
           )}
         </div>
       </main>
@@ -1660,25 +1043,25 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Industria *
-                    </label>
-                    <select
-                      required
-                      value={editFormData.industry}
-                      onChange={(e) => setEditFormData({...editFormData, industry: e.target.value})}
-                      className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="restaurant">Restaurante</option>
-                      <option value="healthcare">Salud</option>
-                      <option value="beauty">Belleza</option>
-                      <option value="fitness">Fitness</option>
-                      <option value="professional">Servicios Profesionales</option>
-                      <option value="retail">Retail</option>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Industria *
+                  </label>
+                  <select
+                    required
+                    value={editFormData.industry}
+                    onChange={(e) => setEditFormData({...editFormData, industry: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="restaurant">Restaurante</option>
+                    <option value="healthcare">Salud</option>
+                    <option value="beauty">Belleza</option>
+                    <option value="fitness">Fitness</option>
+                    <option value="professional">Servicios Profesionales</option>
+                    <option value="retail">Retail</option>
                       <option value="commerce">Comercio</option>
-                      <option value="other">Otro</option>
-                    </select>
+                    <option value="other">Otro</option>
+                  </select>
                   </div>
 
                   <div>
@@ -1716,20 +1099,12 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Tab Appointments */}
+      {activeTab === 'appointments' && (
+        <AppointmentsTab businessId={activeBusiness?.id} />
+      )}
       
-      {/* Modal de prueba de VAPI */}
-      <VapiCallModal 
-        isOpen={isVapiModalOpen} 
-        onClose={() => setIsVapiModalOpen(false)}
-        assistantId={activeBusiness?.assistant?.vapi_assistant_id}
-      />
-      
-      {/* Modal de Test Assistant */}
-      <TestAssistantModal
-        isOpen={showTestAssistantModal}
-        onClose={() => setShowTestAssistantModal(false)}
-        businessId={activeBusiness?.id}
-      />
       </div>
     </div>
   );

@@ -5,12 +5,17 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Logger
+  Logger,
+  Param,
+  Inject,
+  forwardRef
 } from '@nestjs/common';
 import { WebhookGuard } from '../business/guards/webhook.guard';
 import { CallLogService } from '../business/services/call-log.service';
 import { BusinessService } from '../business/services/business.service';
 import { CallDirection, CallStatus } from '../business/entities/call-log.entity';
+import { AppointmentsService } from '../appointments/appointments.service';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
 
 @Controller('webhooks')
 export class WebhookController {
@@ -19,6 +24,9 @@ export class WebhookController {
   constructor(
     private callLogService: CallLogService,
     private businessService: BusinessService,
+    @Inject(forwardRef(() => AppointmentsService))
+    private appointmentsService: AppointmentsService,
+    private googleCalendarService: GoogleCalendarService,
   ) {}
 
   @Post('twilio/call')
@@ -160,5 +168,82 @@ export class WebhookController {
     };
 
     return statusMap[vapiStatus] || CallStatus.ANSWERED;
+  }
+
+  @Post('elevenlabs/appointment/:businessId')
+  @HttpCode(HttpStatus.OK)
+  async handleElevenLabsAppointment(
+    @Param('businessId') businessId: string,
+    @Body() webhookData: any
+  ) {
+    this.logger.log('Webhook ElevenLabs recibido:', JSON.stringify(webhookData, null, 2));
+
+    try {
+      // Extraer datos del webhook de ElevenLabs
+      const { 
+        name, 
+        email, 
+        phone, 
+        service, 
+        date, 
+        time,
+        notes 
+      } = webhookData;
+
+      // Validar datos requeridos
+      if (!name || !email || !phone || !date || !time) {
+        this.logger.error('Datos incompletos en webhook');
+        return {
+          success: false,
+          message: 'Datos incompletos'
+        };
+      }
+
+      // Crear el appointment
+      const appointment = await this.appointmentsService.create({
+        clientName: name,
+        clientEmail: email,
+        clientPhone: phone,
+        serviceType: service || 'consulta',
+        appointmentDate: date,
+        appointmentTime: time,
+        notes: notes || `Creado desde ElevenLabs AI para business ${businessId}`
+      });
+
+      this.logger.log(`Appointment creado: ${appointment.id}`);
+
+      // Intentar crear evento en Google Calendar si está conectado
+      try {
+        const business = await this.businessService.findByPhoneNumber(webhookData.phone || businessId);
+        if (business?.google_calendar_config && (business.google_calendar_config as any).connected) {
+          this.logger.log('Google Calendar conectado, creando evento...');
+          await this.googleCalendarService.createEvent(businessId, {
+            date,
+            time,
+            clientName: name,
+            clientEmail: email,
+            clientPhone: phone,
+            service: service || 'consulta',
+            notes: notes || '',
+          });
+          this.logger.log('Evento creado en Google Calendar');
+        }
+      } catch (error) {
+        this.logger.error('Error creando evento en Google Calendar (no crítico):', error);
+        // No fallar el webhook si Google Calendar falla
+      }
+
+      return {
+        success: true,
+        appointment_id: appointment.id,
+        message: 'Appointment creado y calendar invite enviado'
+      };
+    } catch (error) {
+      this.logger.error('Error procesando webhook ElevenLabs:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
   }
 }

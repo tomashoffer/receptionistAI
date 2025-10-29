@@ -20,7 +20,7 @@ export const config = {
 };
 
 // --- Centralized Configuration for different route types ---
-const publicPaths = ['/', '/register', '/registro', '/unauthorized'];
+const publicPaths = ['/', '/main', '/register', '/registro', '/unauthorized'];
 const adminOnlyPaths = [
     '/dashboard/admin',
     '/users',
