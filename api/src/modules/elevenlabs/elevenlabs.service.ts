@@ -44,8 +44,9 @@ export class ElevenlabsService {
       this.logger.log('User ID recibido:', userId);
       this.logger.log('DTO recibido:', JSON.stringify(createAssistantDto, null, 2));
 
-      // Obtener la voz por defecto según el idioma
-      const language = createAssistantDto.language || 'es';
+      // Obtener la voz por defecto según el idioma y normalizar
+      const rawLanguage = createAssistantDto.language || 'es';
+      const language = rawLanguage.startsWith('es') ? 'es' : 'en'; // Normalizar "es-ES" a "es"
       const defaultVoice = language === 'es' ? SPANISH_VOICES[0] : ENGLISH_VOICES[0];
       
       // El frontend puede enviar 'voice' o 'voice_id'
@@ -64,6 +65,13 @@ export class ElevenlabsService {
       // Construir la URL del webhook
       const webhookUrl = this.buildWebhookUrl(createAssistantDto.business_id || createAssistantDto.businessId);
       
+      // Generar nombre único para la tool basado en el business
+      const cleanBusinessName = (createAssistantDto.name || 'business')
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remover caracteres especiales
+        .replace(/\s+/g, '_') // Reemplazar espacios con guiones bajos
+        .toLowerCase();
+      const toolName = `create_appointment_${cleanBusinessName}`;
+      
       // 1️⃣ PRIMERO crear la Tool
       this.logger.log('🚀 Creando tool en ElevenLabs...');
       let toolId;
@@ -73,7 +81,7 @@ export class ElevenlabsService {
         {
           tool_config: {
             type: 'webhook',
-            name: 'schedule_appointment',
+            name: toolName,
             description: 'Crea una cita en el sistema cuando el cliente proporciona todos los datos necesarios',
             response_timeout_secs: 30,
             disable_interruptions: false,
@@ -85,15 +93,15 @@ export class ElevenlabsService {
               method: 'POST',
               request_body_schema: {
                 type: 'object',
-                required: ['client_name', 'client_email', 'client_phone', 'service_type', 'appointment_date', 'appointment_time'],
+                required: ['name', 'email', 'phone', 'service', 'date', 'time'],
                 description: 'Datos del cliente y la cita',
                 properties: {
-                  client_name: { type: 'string', description: 'Nombre completo del cliente' },
-                  client_email: { type: 'string', description: 'Email del cliente' },
-                  client_phone: { type: 'string', description: 'Teléfono del cliente' },
-                  service_type: { type: 'string', description: 'Tipo de servicio' },
-                  appointment_date: { type: 'string', description: 'Fecha YYYY-MM-DD' },
-                  appointment_time: { type: 'string', description: 'Hora HH:MM 24h' },
+                  name: { type: 'string', description: 'Nombre completo del cliente' },
+                  email: { type: 'string', description: 'Email del cliente' },
+                  phone: { type: 'string', description: 'Teléfono del cliente' },
+                  service: { type: 'string', description: 'Tipo de servicio' },
+                  date: { type: 'string', description: 'Fecha YYYY-MM-DD' },
+                  time: { type: 'string', description: 'Hora HH:MM 24h' },
                   notes: { type: 'string', description: 'Notas opcionales' }
                 }
               }
@@ -122,7 +130,7 @@ export class ElevenlabsService {
         conversation_config: {
           agent: {
             first_message: firstMessage,
-            language: language === 'es' ? 'es' : 'en',
+            language: language,
             prompt: {
               prompt: this.buildPromptWithTools((createAssistantDto.prompt || '').substring(0, 1000), webhookUrl),
               llm: 'gpt-4o-mini',
@@ -181,6 +189,18 @@ export class ElevenlabsService {
         throw new Error('business_id es requerido');
       }
 
+      // Construir el objeto de tool con el ID de ElevenLabs
+      const toolsWithId = createAssistantDto.tools?.map((tool: any) => {
+        // Si viene el tool desde el frontend, agregar el ID
+        if (tool && toolId) {
+          return {
+            ...tool,
+            id: toolId // Agregar el ID de la tool de ElevenLabs
+          };
+        }
+        return tool;
+      });
+
       const localAssistantData = {
         business_id: businessId,
         name: createAssistantDto.name || 'Recepcionista AI',
@@ -193,7 +213,7 @@ export class ElevenlabsService {
         language: selectedVoice.language,
         model_provider: ModelProvider.OPENAI,
         model_name: 'gpt-4o-mini',
-        tools: createAssistantDto.tools || null,
+        tools: toolsWithId || null,
         required_fields: createAssistantDto.required_fields || null,
         server_url: createAssistantDto.server_url || null,
         server_url_secret: createAssistantDto.server_url_secret || null,
@@ -238,12 +258,308 @@ export class ElevenlabsService {
     const ngrokUrl = this.configService.get<string>('WEBHOOK_URL');
     if (ngrokUrl) {
       // URL completa de N8N que luego reenvía al backend
-      return `${ngrokUrl}/webhook-test/vapi-appointment`;
+      return `${ngrokUrl}/webhook-test/elevenlabs-appointment`;
     }
     
     // Si no hay ngrok, usar localhost directo
     const baseUrl = this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001';
     return `${baseUrl}/api/webhooks/elevenlabs/appointment/${businessId}`;
+  }
+
+  async updateAssistant(agentId: string, updateAssistantDto: Partial<CreateAssistantDto>) {
+    try {
+      this.logger.log('🔄 Actualizando agent en ElevenLabs...');
+      this.logger.log('Agent ID:', agentId);
+      this.logger.log('Update data:', JSON.stringify(updateAssistantDto, null, 2));
+
+      // Obtener la voz seleccionada y normalizar idioma
+      const rawLanguage = updateAssistantDto.language || 'es';
+      const language = rawLanguage.startsWith('es') ? 'es' : 'en'; // Normalizar "es-ES" a "es"
+      const defaultVoice = language === 'es' ? SPANISH_VOICES[0] : ENGLISH_VOICES[0];
+      const voiceId = updateAssistantDto.voice || updateAssistantDto.voice_id;
+      const selectedVoice = voiceId 
+        ? ALL_VOICES.find(v => v.id === voiceId) || defaultVoice
+        : defaultVoice;
+
+      const firstMessage = updateAssistantDto.firstMessage || updateAssistantDto.first_message || '¡Hola! ¿En qué puedo ayudarte?';
+      
+      // Construir URL del webhook
+      const webhookUrl = this.buildWebhookUrl(updateAssistantDto.business_id || updateAssistantDto.businessId);
+
+      // 1️⃣ Obtener el agent actual para ver sus tools existentes
+      this.logger.log('📋 Obteniendo agent actual...');
+      const currentAgentResponse = await axios.get(
+        `${this.elevenlabsBaseUrl}/v1/convai/agents/${agentId}`,
+        {
+          headers: {
+            'xi-api-key': this.elevenlabsApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const currentToolIds = currentAgentResponse.data.conversation_config?.agent?.prompt?.tool_ids || [];
+      this.logger.log('Tool IDs actuales:', currentToolIds);
+
+      // 2️⃣ Obtener el ID de la tool desde la BD si no viene en el DTO
+      let toolId;
+      const businessId = updateAssistantDto.business_id || updateAssistantDto.businessId;
+      let toolIdToUse;
+      let assistantFromBD = null;
+      
+      // Primero intentar desde el DTO
+      const existingToolIdFromDto = updateAssistantDto.tools?.[0]?.id;
+      
+      // Si no está en el DTO, obtenerlo de la BD
+      if (!existingToolIdFromDto && businessId) {
+        try {
+          assistantFromBD = await this.assistantService.getAssistantByBusinessId(businessId);
+          if (assistantFromBD?.tools && assistantFromBD.tools.length > 0) {
+            toolIdToUse = assistantFromBD.tools[0].id;
+            this.logger.log('🔍 Tool ID obtenido de BD:', toolIdToUse);
+          }
+        } catch (error) {
+          this.logger.error('Error obteniendo assistant de BD:', error);
+        }
+      }
+      
+      // Si aún no hay ID, usar el del agent actual
+      if (!toolIdToUse) {
+        toolIdToUse = existingToolIdFromDto || currentToolIds[0];
+      }
+      
+      // Si hay required_fields, actualizar la tool
+      if (updateAssistantDto.required_fields) {
+        this.logger.log('🔧 Actualizando tool con campos requeridos...');
+        
+        // Construir los parámetros de la tool basándose en required_fields
+        const requiredFields = (updateAssistantDto.required_fields as any) || [];
+        const properties: any = {
+          name: { type: 'string', description: 'Nombre completo del cliente' },
+          email: { type: 'string', description: 'Email del cliente' },
+          phone: { type: 'string', description: 'Teléfono del cliente' },
+          service: { type: 'string', description: 'Tipo de servicio solicitado' },
+          date: { type: 'string', description: 'Fecha preferida para la cita' },
+          time: { type: 'string', description: 'Hora preferida para la cita' }
+        };
+
+        // Agregar campos personalizados
+        if (Array.isArray(requiredFields)) {
+          requiredFields.forEach((field: any) => {
+            if (typeof field === 'object' && field.name) {
+              const typeMap: any = {
+                'text': 'string',
+                'number': 'number',
+                'email': 'string',
+                'phone': 'string',
+                'date': 'string'
+              };
+              properties[field.name] = {
+                type: typeMap[field.type] || 'string',
+                description: field.label || field.name
+              };
+            }
+          });
+        }
+
+        const businessName = updateAssistantDto.name?.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').toLowerCase() || 'business';
+        
+        // Construir el schema de la tool
+        const toolConfig: any = {
+          type: 'webhook',
+          name: `create_appointment_${businessName}`,
+          description: 'Crea una nueva cita con la información del cliente',
+          response_timeout_secs: 30,
+          disable_interruptions: false,
+          force_pre_tool_speech: false,
+          tool_call_sound: 'typing',
+          tool_call_sound_behavior: 'auto',
+          api_schema: {
+            url: webhookUrl,
+            method: 'POST',
+            request_body_schema: {
+              type: 'object',
+              properties,
+              required: Object.keys(properties)
+            }
+          }
+        };
+        
+        if (toolIdToUse) {
+          // Actualizar tool existente usando endpoint separado
+          this.logger.log('🔄 Actualizando tool con ID:', toolIdToUse);
+          await axios.patch(
+            `${this.elevenlabsBaseUrl}/v1/convai/tools/${toolIdToUse}`,
+            { tool_config: toolConfig },
+            {
+              headers: {
+                'xi-api-key': this.elevenlabsApiKey,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          toolId = toolIdToUse;
+          this.logger.log('✅ Tool actualizada exitosamente');
+        } else {
+          throw new Error('No se encontró el ID de la tool para actualizar');
+        }
+      }
+
+      // 3️⃣ Actualizar el AGENT (sin tocar tools, solo configuración)
+      this.logger.log('🔄 Actualizando agent...');
+      
+      // Usar el prompt directamente sin manipularlo
+      const promptText = updateAssistantDto.prompt || '';
+      
+      this.logger.log('Prompt que se enviará:', promptText.substring(0, 200) + '...');
+
+      // Construir el payload para actualizar el agent
+      // Mantener los tool_ids existentes para que las tools sigan asociadas
+      const updatePayload: any = {
+        conversation_config: {
+          agent: {
+            first_message: firstMessage,
+            language: language,
+            prompt: {
+              prompt: promptText, // Prompt completo sin limitación
+              llm: 'gpt-4o-mini',
+              tool_ids: currentToolIds // Mantener las tools existentes asociadas
+            }
+          },
+          tts: {
+            model_id: 'eleven_turbo_v2_5',
+            voice_id: selectedVoice.id
+          }
+        }
+      };
+
+      this.logger.log('Update payload:', JSON.stringify(updatePayload, null, 2));
+
+      // Actualizar el agente en ElevenLabs
+      const response = await axios.patch(
+        `${this.elevenlabsBaseUrl}/v1/convai/agents/${agentId}`,
+        updatePayload,
+        {
+          headers: {
+            'xi-api-key': this.elevenlabsApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      this.logger.log('✅ Agent actualizado exitosamente en ElevenLabs');
+
+      // 4️⃣ Actualizar en la base de datos local
+      if (businessId) {
+        try {
+          this.logger.log('🔄 Actualizando assistant en base de datos local...');
+          const assistant = assistantFromBD || await this.assistantService.getAssistantByBusinessId(businessId);
+          if (assistant) {
+            const updateData: any = {};
+            
+            // SIEMPRE actualizar el prompt si se envió
+            if (updateAssistantDto.prompt) {
+              updateData.prompt = updateAssistantDto.prompt;
+              this.logger.log('📝 Actualizando prompt en BD local');
+            }
+            
+            // Actualizar voice_id si se envió
+            if (selectedVoice) {
+              updateData.voice_id = selectedVoice.id;
+              updateData.language = language;
+            }
+            
+            // Actualizar first_message si se envió
+            if (firstMessage) {
+              updateData.first_message = firstMessage;
+            }
+            
+            // SIEMPRE actualizar required_fields si se enviaron
+            if (updateAssistantDto.required_fields) {
+              updateData.required_fields = updateAssistantDto.required_fields as any;
+              this.logger.log('📋 Actualizando required_fields en BD local');
+            }
+            
+            // Reconstruir tools con los campos actualizados SIEMPRE que haya required_fields
+            if (updateAssistantDto.required_fields && toolId) {
+              this.logger.log('🔧 Reconstruyendo tools para BD local...');
+              const requiredFields = (updateAssistantDto.required_fields as any) || [];
+              const properties: any = {
+                name: { type: 'string', description: 'Nombre completo del cliente' },
+                email: { type: 'string', description: 'Email del cliente' },
+                phone: { type: 'string', description: 'Teléfono del cliente' },
+                service: { type: 'string', description: 'Tipo de servicio solicitado' },
+                date: { type: 'string', description: 'Fecha preferida para la cita' },
+                time: { type: 'string', description: 'Hora preferida para la cita' }
+              };
+
+              // Agregar campos personalizados
+              if (Array.isArray(requiredFields)) {
+                requiredFields.forEach((field: any) => {
+                  if (typeof field === 'object' && field.name) {
+                    const typeMap: any = {
+                      'text': 'string',
+                      'number': 'number',
+                      'email': 'string',
+                      'phone': 'string',
+                      'date': 'string'
+                    };
+                    properties[field.name] = {
+                      type: typeMap[field.type] || 'string',
+                      description: field.label || field.name
+                    };
+                  }
+                });
+              }
+
+              const businessName = updateAssistantDto.name?.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').toLowerCase() || 'business';
+              
+              // Reconstruir el objeto tool completo
+              const updatedTool = {
+                id: toolId,
+                name: `create_appointment_${businessName}`,
+                description: 'Crea una nueva cita con la información del cliente',
+                parameters: {
+                  type: 'object',
+                  properties,
+                  required: Object.keys(properties)
+                },
+                webhook_url: webhookUrl,
+                enabled: true
+              };
+              
+              updateData.tools = [updatedTool];
+              this.logger.log('📋 Tool reconstruida para BD:', JSON.stringify(updatedTool, null, 2));
+            } else if (toolId && assistant.tools && assistant.tools.length > 0) {
+              // Si hay toolId pero no required_fields, solo actualizar el ID
+              const updatedTools = assistant.tools.map((tool: any) => ({
+                ...tool,
+                id: toolId
+              }));
+              updateData.tools = updatedTools;
+              this.logger.log('🆔 Actualizando solo tool_id en BD');
+            }
+            
+            // Llamar con businessId, no assistant.id
+            await this.assistantService.updateAssistant(businessId, updateData);
+            this.logger.log('✅ Assistant actualizado en base de datos local');
+          }
+        } catch (dbError) {
+          this.logger.error('Error actualizando assistant en BD:', dbError);
+          // No fallar la operación si falla la actualización de BD
+        }
+      }
+
+      return {
+        agent_id: response.data.agent_id,
+        name: response.data.name,
+        conversation_config: response.data.conversation_config
+      };
+
+    } catch (error) {
+      this.logger.error('Error actualizando agent en ElevenLabs:', error.response?.data || error.message);
+      throw new Error(`Failed to update ElevenLabs agent: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   private buildPromptWithTools(basePrompt: string, webhookUrl: string): string {

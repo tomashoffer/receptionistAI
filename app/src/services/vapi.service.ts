@@ -119,7 +119,7 @@ class ElevenlabsService {
   async updateAssistant(assistantId: string, data: Partial<CreateAssistantRequest>): Promise<ElevenlabsAssistant> {
     try {
       const response = await apiService.request(`${this.baseUrl}/assistants/${assistantId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(data),
       });
 

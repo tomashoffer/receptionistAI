@@ -7,7 +7,6 @@ import { elevenlabsService } from '@/services/vapi.service';
 import { useRouter, usePathname } from 'next/navigation';
 import { PlusIcon, CheckIcon, PencilIcon, Bars3Icon, PhoneIcon } from '@heroicons/react/24/outline';
 import LogoutButton from '@/components/LogoutButton';
-import ElevenLabsCallModal from '@/components/reusable/ElevenLabsCallModal';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -84,10 +83,24 @@ export default function DashboardPage() {
     const hasAnyChanges = hasPromptChanged || hasVoiceChanged || hasLanguageChanged || hasFirstMessageChanged || hasFieldsChanged;
     setHasChanges(hasAnyChanges);
   };
-  const [showTestAssistantModal, setShowTestAssistantModal] = useState(false);
 
   // Helper function para determinar si hay assistant (usando solo store global)
   const hasAssistant = !!activeBusiness?.assistant_id;
+
+  // Cargar script del widget de ElevenLabs
+  useEffect(() => {
+    if (hasAssistant) {
+      const existingScript = document.querySelector('script[src*="convai-widget-embed"]');
+      
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
+        script.async = true;
+        script.type = 'text/javascript';
+        document.body.appendChild(script);
+      }
+    }
+  }, [hasAssistant]);
 
   // Helper function para obtener el token de autenticación
   const getAuthToken = async () => {
@@ -106,7 +119,7 @@ export default function DashboardPage() {
   // Cargar datos del business activo en el formulario del recepcionista
   useEffect(() => {
     const loadBusinessData = async () => {
-      if (activeBusiness) {
+    if (activeBusiness) {
         // Primero intentar cargar el prompt personalizado desde el backend
         try {
           const token = await getAuthToken();
@@ -123,7 +136,7 @@ export default function DashboardPage() {
           
           if (response.ok) {
             const data = await response.json();
-            setRecepcionistaFormData({
+      setRecepcionistaFormData({
               ai_prompt: activeBusiness.assistant?.prompt || data.prompt || '',
               ai_voice_id: activeBusiness.assistant?.voice_id || '',
               ai_language: activeBusiness.assistant?.language || 'es',
@@ -191,7 +204,7 @@ export default function DashboardPage() {
         } catch (error) {
           console.error('Error fetching business:', error);
           // Fallback al business sin relación
-          setActiveBusiness(selectedBusiness);
+      setActiveBusiness(selectedBusiness);
         }
       }
     }
@@ -298,7 +311,7 @@ export default function DashboardPage() {
         properties: allFields,
         required: Object.keys(allFields)
       },
-      webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/vapi-appointment',
+      webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/elevenlabs-appointment',
       enabled: true
     };
   };
@@ -551,13 +564,13 @@ export default function DashboardPage() {
       }
       
       const assistant = await elevenlabsService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
-        name: `${activeBusiness.name} - Recepcionista AI`,
+        name: `${activeBusiness.name}`,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
         language: recepcionistaFormData.ai_language,
         firstMessage: recepcionistaFormData.first_message,
-        tools: [generateCreateAppointmentTool()],
-        required_fields: recepcionistaFormData.required_fields
+        required_fields: recepcionistaFormData.required_fields,
+        businessId: activeBusiness.id // ✅ businessId para actualizar en BD
       });
 
       // Actualizar el business con la nueva configuración
@@ -671,13 +684,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleTestAssistant = () => {
-    if (!activeBusiness?.assistant?.vapi_assistant_id) {
-      setRecepcionistaError('⚠️ Primero debes crear un assistant en ElevenLabs. Completa el prompt, selecciona una voz y haz click en "Crear Assistant en ElevenLabs".');
-      return;
-    }
-    setShowTestAssistantModal(true);
-  };
 
   const menuItems = [
     { id: 'overview', label: 'Resumen', action: () => setActiveTab('overview') },
@@ -1032,12 +1038,9 @@ export default function DashboardPage() {
                 </p>
                 
                 <div className="text-center">
-                  <button
-                    onClick={() => setShowTestAssistantModal(true)}
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 font-medium"
-                  >
-                    Abrir Test Assistant
-                  </button>
+                  <p className="text-gray-600">
+                    El widget de prueba aparecerá directamente en la sección de "Mi Recepcionista" si tienes un assistant configurado.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1152,25 +1155,25 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   // Contenido normal cuando hay business
-                  <>
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Mi Recepcionista - {activeBusiness?.name}
-                    </h3>
-                    <p className="text-gray-600 mb-6">
-                      Configura el comportamiento de tu recepcionista AI.
-                    </p>
-                    
-                    {/* Mensajes de error y éxito */}
-                    {recepcionistaError && (
-                      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-red-600">{recepcionistaError}</p>
-                      </div>
-                    )}
-                    {recepcionistaSuccess && (
-                      <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-green-600">{recepcionistaSuccess}</p>
-                      </div>
-                    )}
+                  <React.Fragment key="recepcionista-config">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  Mi Recepcionista - {activeBusiness?.name}
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Configura el comportamiento de tu recepcionista AI.
+                </p>
+                
+                {/* Mensajes de error y éxito */}
+                {recepcionistaError && (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-red-600">{recepcionistaError}</p>
+                  </div>
+                )}
+                {recepcionistaSuccess && (
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                    <p className="text-green-600">{recepcionistaSuccess}</p>
+                  </div>
+                )}
                     
                     {/* Estado del Assistant */}
                     <div className="mb-6 p-4 rounded-lg border">
@@ -1199,8 +1202,8 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-
-                    {/* Formulario de configuración directamente aquí */}
+                
+                {/* Formulario de configuración directamente aquí */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Columna izquierda - Prompt */}
                       <div className="space-y-4">
@@ -1231,21 +1234,21 @@ export default function DashboardPage() {
                             Primer mensaje que dirá el asistente cuando reciba una llamada.
                           </p>
                         </div>
-                        {/* AI Prompt */}
-                        <div>
-                          <label htmlFor="ai_prompt" className="block text-sm font-medium text-gray-700 mb-2">
-                            Comportamiento del Recepcionista
-                          </label>
+                  {/* AI Prompt */}
+                  <div>
+                    <label htmlFor="ai_prompt" className="block text-sm font-medium text-gray-700 mb-2">
+                      Comportamiento del Recepcionista
+                    </label>
                           <div className="relative">
-                            <textarea
-                              id="ai_prompt"
-                              name="ai_prompt"
+                    <textarea
+                      id="ai_prompt"
+                      name="ai_prompt"
                               rows={20}
-                              value={recepcionistaFormData.ai_prompt}
-                              onChange={handleRecepcionistaInputChange}
+                      value={recepcionistaFormData.ai_prompt}
+                      onChange={handleRecepcionistaInputChange}
                               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black resize-none"
-                              placeholder="Define cómo quieres que tu recepcionista AI interactúe con los clientes..."
-                            />
+                      placeholder="Define cómo quieres que tu recepcionista AI interactúe con los clientes..."
+                    />
                             <button
                               type="button"
                               onClick={updatePromptWithCurrentFields}
@@ -1254,8 +1257,8 @@ export default function DashboardPage() {
                               Generar Prompt
                             </button>
                           </div>
-                          <p className="mt-1 text-sm text-gray-500">
-                            Describe el comportamiento, tono y información que debe proporcionar tu recepcionista.
+                    <p className="mt-1 text-sm text-gray-500">
+                      Describe el comportamiento, tono y información que debe proporcionar tu recepcionista.
                           </p>
                         </div>
 
@@ -1318,7 +1321,7 @@ export default function DashboardPage() {
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
                         Campos requeridos para crear citas
-                      </label>
+                    </label>
                       <div className="space-y-2">
                         {/* Campos predefinidos */}
                         <div className="grid grid-cols-2 gap-2">
@@ -1427,7 +1430,7 @@ export default function DashboardPage() {
                               />
                             </div>
                             <div className="w-20">
-                              <select
+                    <select
                                 value={newFieldType}
                                 onChange={(e) => setNewFieldType(e.target.value)}
                                 className="w-full px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-black text-sm"
@@ -1437,7 +1440,7 @@ export default function DashboardPage() {
                                 <option value="email">Email</option>
                                 <option value="phone">Teléfono</option>
                                 <option value="date">Fecha</option>
-                              </select>
+                    </select>
                             </div>
                             <button
                               type="button"
@@ -1481,21 +1484,65 @@ export default function DashboardPage() {
                             Nosotros nos encargamos de crear y mantener tu assistant en ElevenLabs.
                           </p>
                         </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                    </div>
 
+                {/* Widget de ElevenLabs y Botones según si hay asistente */}
+                {hasAssistant ? (
+                  <>
+                    {/* Widget de ElevenLabs */}
+                      <div>
+                        {typeof window !== 'undefined' && (
+                          // Widget de ElevenLabs
+                          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                          // @ts-ignore
+                          <elevenlabs-convai
+                            agent-id={activeBusiness?.assistant?.vapi_assistant_id}
+                            action-text="Probar tu asistente"
+                            variant="full"
+                            placement="center"
+                            transcript-enabled="true"
+                          />
+                        )}
+                      </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row sm:justify-center gap-3 pt-4 border-t border-gray-200">
-                  {/* Botón de Crear - Solo si NO hay asistente */}
-                  {!hasAssistant && (
+                    {/* Botón de Actualizar */}
+                    <div className="mt-6 pt-6 border-t border-gray-200 flex justify-center w-full">
+                      <button
+                        type="button"
+                        onClick={handleUpdateAssistant}
+                        disabled={isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id}
+                        className={`px-6 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium shadow-md ${
+                          isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        }`}
+                      >
+                        {isCreatingAssistant ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Actualizando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <PencilIcon className="w-4 h-4" />
+                            <span>Actualizar Assistant</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  /* Botón de Crear - Solo si NO hay asistente */
+                  <div className="mt-6 pt-6 border-t border-gray-200 flex justify-center w-full">
                     <button
                       type="button"
                       onClick={handleCreateAssistant}
                       disabled={isCreatingAssistant || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id}
-                      className={`px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium ${
+                      className={`px-6 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium shadow-md ${
                         isCreatingAssistant || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id
                           ? 'bg-gray-400 text-white cursor-not-allowed'
                           : 'bg-green-600 text-white hover:bg-green-700'
@@ -1510,46 +1557,10 @@ export default function DashboardPage() {
                         <span>Crear Assistant</span>
                       )}
                     </button>
-                  )}
-                  
-                  {/* Botón de Editar - Solo si YA hay asistente Y hay cambios */}
-                  {hasAssistant && (
-                    <button
-                      type="button"
-                      onClick={handleUpdateAssistant}
-                      disabled={isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id}
-                      className={`px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium ${
-                        isCreatingAssistant || !hasChanges || !recepcionistaFormData.ai_prompt || !recepcionistaFormData.ai_voice_id
-                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                          : 'bg-orange-600 text-white hover:bg-orange-700'
-                      }`}
-                    >
-                      {isCreatingAssistant ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Actualizando...</span>
-                        </>
-                      ) : (
-                        <span>Editar Assistant</span>
-                      )}
-                    </button>
-                  )}
-                  
-                  {/* Botón de Test - Solo si YA hay asistente */}
-                  {hasAssistant && (
-                    <button
-                      type="button"
-                      onClick={handleTestAssistant}
-                      className="px-4 py-3 rounded-md transition-colors flex items-center justify-center space-x-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      <PhoneIcon className="w-4 h-4" />
-                      <span>Test Assistant</span>
-                    </button>
-                  )}
-                </div>
-                    </div>
-                  </>
+                  </div>
                 )}
+              </React.Fragment>
+              )}
               </div>
             </div>
           )}
@@ -1658,25 +1669,25 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Industria *
-                    </label>
-                    <select
-                      required
-                      value={editFormData.industry}
-                      onChange={(e) => setEditFormData({...editFormData, industry: e.target.value})}
-                      className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                    >
-                      <option value="restaurant">Restaurante</option>
-                      <option value="healthcare">Salud</option>
-                      <option value="beauty">Belleza</option>
-                      <option value="fitness">Fitness</option>
-                      <option value="professional">Servicios Profesionales</option>
-                      <option value="retail">Retail</option>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Industria *
+                  </label>
+                  <select
+                    required
+                    value={editFormData.industry}
+                    onChange={(e) => setEditFormData({...editFormData, industry: e.target.value})}
+                    className="mt-1 block w-full px-3 py-2 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="restaurant">Restaurante</option>
+                    <option value="healthcare">Salud</option>
+                    <option value="beauty">Belleza</option>
+                    <option value="fitness">Fitness</option>
+                    <option value="professional">Servicios Profesionales</option>
+                    <option value="retail">Retail</option>
                       <option value="commerce">Comercio</option>
-                      <option value="other">Otro</option>
-                    </select>
+                    <option value="other">Otro</option>
+                  </select>
                   </div>
 
                   <div>
@@ -1715,13 +1726,6 @@ export default function DashboardPage() {
         </div>
       )}
       
-      {/* Modal de Test Assistant - ElevenLabs */}
-      <ElevenLabsCallModal
-        isOpen={showTestAssistantModal}
-        onClose={() => setShowTestAssistantModal(false)}
-        assistantId={activeBusiness?.assistant?.vapi_assistant_id}
-        businessName={activeBusiness?.name || 'Asistente'}
-      />
       </div>
     </div>
   );

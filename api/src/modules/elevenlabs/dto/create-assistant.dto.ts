@@ -44,6 +44,7 @@ export class CreateAssistantDto {
   @IsOptional()
   @IsArray()
   tools?: Array<{
+    id?: string; // ID de la tool en ElevenLabs
     name: string;
     description: string;
     parameters: any;

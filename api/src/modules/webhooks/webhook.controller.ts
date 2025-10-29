@@ -179,17 +179,17 @@ export class WebhookController {
     try {
       // Extraer datos del webhook de ElevenLabs
       const { 
-        client_name, 
-        client_email, 
-        client_phone, 
-        service_type, 
-        appointment_date, 
-        appointment_time,
+        name, 
+        email, 
+        phone, 
+        service, 
+        date, 
+        time,
         notes 
       } = webhookData;
 
       // Validar datos requeridos
-      if (!client_name || !client_email || !client_phone || !appointment_date || !appointment_time) {
+      if (!name || !email || !phone || !date || !time) {
         this.logger.error('Datos incompletos en webhook');
         return {
           success: false,
@@ -199,12 +199,12 @@ export class WebhookController {
 
       // Crear el appointment
       const appointment = await this.appointmentsService.create({
-        clientName: client_name,
-        clientEmail: client_email,
-        clientPhone: client_phone,
-        serviceType: service_type || 'consulta',
-        appointmentDate: appointment_date,
-        appointmentTime: appointment_time,
+        clientName: name,
+        clientEmail: email,
+        clientPhone: phone,
+        serviceType: service || 'consulta',
+        appointmentDate: date,
+        appointmentTime: time,
         notes: notes || `Creado desde ElevenLabs AI para business ${businessId}`
       });
 

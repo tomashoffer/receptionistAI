@@ -85,7 +85,7 @@ services:
   #     NEXT_PUBLIC_VAPI_ASSISTANT_ID: ${NEXT_PUBLIC_VAPI_ASSISTANT_ID:-d4b41f08-9198-41d2-b935-d2d53d960921}
       
   #     # N8N Webhook
-  #     NEXT_PUBLIC_N8N_WEBHOOK_URL: ${NEXT_PUBLIC_N8N_WEBHOOK_URL:-https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook/vapi-appointment}
+  #     NEXT_PUBLIC_N8N_WEBHOOK_URL: ${NEXT_PUBLIC_N8N_WEBHOOK_URL:-https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook/elevenlabs-appointment}
       
   #     # Node Environment
   #     NODE_ENV: development

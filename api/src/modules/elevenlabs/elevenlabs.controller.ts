@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Param, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, UseGuards, Request, Param, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '../../guards/auth.guard';
 import { AuthUser } from '../../decorators/auth-user.decorator';
 import { Auth } from '../../decorators/http.decorators';
@@ -19,6 +19,20 @@ export class ElevenlabsController {
       throw new UnauthorizedException('User not authenticated');
     }
     return this.elevenlabsService.createAssistant(createAssistantDto, user.id);
+  }
+
+  @Patch('assistants/:agentId')
+  @UseGuards(AuthGuard)
+  @Auth([RoleType.ADMIN, RoleType.USER])
+  async updateAssistant(
+    @Param('agentId') agentId: string,
+    @Body() updateAssistantDto: Partial<CreateAssistantDto>,
+    @AuthUser() user: UserEntity
+  ) {
+    if (!user || !user.id) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    return this.elevenlabsService.updateAssistant(agentId, updateAssistantDto);
   }
 
   @Get('voices')
