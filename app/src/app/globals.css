@@ -13,7 +13,7 @@
   --foreground: #171717;
 }
 
-/* Dark mode with modern black and green theme (like VAPI) */
+/* Dark mode with modern black and green theme */
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
@@ -33,6 +33,10 @@ body {
 
 .dark .bg-gray-50 {
   background-color: #0a0a0a !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: #1a1a1a !important;
 }
 
 .dark .bg-gray-100 {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { apiService } from '@/services/api.service';
-import { elevenlabsService } from '@/services/vapi.service';
+import { elevenlabsService } from '@/services/elevenlabs.service';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { PlusIcon, CheckIcon, PencilIcon, Bars3Icon, PhoneIcon } from '@heroicons/react/24/outline';
 import LogoutButton from '@/components/LogoutButton';
@@ -121,21 +121,6 @@ export default function DashboardPage() {
 
   // Helper function para determinar si hay assistant (usando solo store global)
   const hasAssistant = !!activeBusiness?.assistant_id;
-
-  // Cargar script del widget de ElevenLabs
-  useEffect(() => {
-    if (hasAssistant) {
-      const existingScript = document.querySelector('script[src*="convai-widget-embed"]');
-      
-      if (!existingScript) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-        script.async = true;
-        script.type = 'text/javascript';
-        document.body.appendChild(script);
-      }
-    }
-  }, [hasAssistant]);
 
   // Helper function para obtener el token de autenticación
   const getAuthToken = async () => {

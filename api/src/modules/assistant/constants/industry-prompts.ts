@@ -38,6 +38,27 @@ function generateBusinessDescription(business: BusinessData): string {
   return `${businessName}, ${description}.`;
 }
 
+// Instrucción dinámica de idioma
+function languageInstruction(language?: string): string {
+  const lang = (language || '').toLowerCase();
+  if (lang.startsWith('es')) {
+    return '- Siempre habla en Español de Argentina';
+  }
+  return '- Always speak in American English';
+}
+
+// Instrucción de validación de email (común a todas las industrias)
+const emailValidationInstruction = '- Valida que el email tenga formato válido (debe contener @)';
+
+// Apéndice estándar con pasos de agendamiento y uso de tools
+function getSchedulingAppendix(language?: string): string {
+  const isSpanish = (language || '').toLowerCase().startsWith('es');
+  if (isSpanish) {
+    return `\n\n## SISTEMA DE AGENDAMIENTO AUTOMÁTICO\n\nTienes acceso a un sistema automático de agendamiento de citas. Cuando el cliente quiera agendar una cita, sigue estos pasos:\n\n### 1. ANTES DE INTERPRETAR FECHAS\n- Llama primero a la herramienta "get_current_datetime" para obtener fecha/hora actual y zona horaria.\n- Luego utiliza la herramienta "resolve_date" con el texto de fecha del usuario (y tz/lang) para normalizar a YYYY-MM-DD y obtener el día de la semana correcto.\n\n### 2. RECOPILAR INFORMACIÓN (EN ESTE ORDEN)\n1. Nombre completo del cliente\n2. Email del cliente (${emailValidationInstruction.replace('-', '').trim()})\n3. Teléfono del cliente\n4. Tipo de servicio\n5. Fecha (YYYY-MM-DD)\n6. Hora (HH:MM 24h)\n\n### 3. VERIFICAR DISPONIBILIDAD\n- Llama a "check_availability" con la fecha y hora.\n- Si no hay disponibilidad, ofrece alternativas devueltas por el sistema y vuelve a verificar.\n\n### 4. CREAR LA CITA\n- Una vez confirmada la disponibilidad y los datos, llama a "create_appointment".\n- Confirma al cliente que recibirá un email con la invitación del calendario.\n\n### 5. DIRECTRICES\n- NO menciones URLs, webhooks o sistemas técnicos.\n- Sé natural y conversacional.\n- Siempre confirma antes de agendar.\n\n### FORMATO DE LOS DATOS\n- Fecha: YYYY-MM-DD\n- Hora: HH:MM (24h)\n- Email: debe contener @\n- Teléfono: puede incluir código de país`;
+  }
+  return `\n\n## AUTOMATED SCHEDULING SYSTEM\n\nYou have access to an automated scheduling system. When a user wants to book, follow these steps:\n\n### 1. BEFORE INTERPRETING DATES\n- First call the "get_current_datetime" tool to get current date/time and timezone.\n- Then use the "resolve_date" tool with the user's date text (and tz/lang) to normalize it to YYYY-MM-DD and obtain the correct weekday.\n\n### 2. COLLECT INFORMATION (IN THIS ORDER)\n1. Client full name\n2. Client email (validate it contains @)\n3. Client phone\n4. Service type\n5. Date (YYYY-MM-DD)\n6. Time (HH:MM 24h)\n\n### 3. CHECK AVAILABILITY\n- Call "check_availability" with date and time.\n- If unavailable, offer the suggested alternatives and re-check.\n\n### 4. CREATE THE APPOINTMENT\n- Once confirmed, call "create_appointment".\n- Confirm to the user they will receive a calendar invite via email.\n\n### 5. GUIDELINES\n- Do NOT mention URLs, webhooks or technical systems.\n- Be natural and conversational.\n- Always confirm before booking.\n\n### DATA FORMAT\n- Date: YYYY-MM-DD\n- Time: HH:MM (24h)\n- Email: must contain @\n- Phone: may include country code`;
+}
+
 // Función helper para generar la sección de información a extraer
 function generateInformationToExtract(requiredFields?: (string | { name: string; type: string; label: string })[]): string {
   const defaultFields = [
@@ -106,7 +127,7 @@ function generateInformationToExtract(requiredFields?: (string | { name: string;
 }
 
 export const INDUSTRY_PROMPTS = {
-  hair_salon: (business: BusinessData) => `[Identity & Purpose]
+  hair_salon: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar citas de manera natural y conversacional.
 
 [Instrucciones]
@@ -115,7 +136,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé paciente y amable
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -148,7 +170,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - No proporciona consejos médicos
 - Sugiere servicios apropiados según las necesidades del cliente`,
 
-  restaurant: (business: BusinessData) => `[Identity & Purpose]
+  restaurant: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es gestionar reservas de manera natural y conversacional.
 
 [Instrucciones]
@@ -157,7 +179,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es gestionar
 - Confirma los datos antes de hacer la reserva
 - Sé paciente y amable
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -188,7 +211,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Máximo 8 personas por reserva regular (para grupos más grandes, derivar)
 - Requiere confirmación 24 horas antes`,
 
-  medical_clinic: (business: BusinessData) => `[Identity & Purpose]
+  medical_clinic: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar consultas médicas de manera profesional y empática.
 
 [Instrucciones]
@@ -198,7 +221,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé paciente y comprensivo/a
 - Si falta información, pregunta de manera delicada
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -231,7 +255,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - NO agenda citas de emergencia (derivar a emergencias)
 - Mantiene confidencialidad médica`,
 
-  dental_clinic: (business: BusinessData) => `[Identity & Purpose]
+  dental_clinic: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar consultas dentales de manera profesional y amable.
 
 [Instrucciones]
@@ -240,7 +264,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé paciente y comprensivo/a
 - Si falta información, pregunta de manera delicada
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -273,7 +298,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - NO proporciona diagnósticos
 - Para emergencias dentales, priorizar atención urgente`,
 
-  fitness_center: (business: BusinessData) => `[Identity & Purpose]
+  fitness_center: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar clases y sesiones de entrenamiento de manera motivadora y amigable.
 
 [Instrucciones]
@@ -282,7 +307,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé entusiasta y alentador/a
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -314,7 +340,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Verifica cupo disponible en clases grupales
 - Para primera vez, sugiere clase de prueba`,
 
-  beauty_salon: (business: BusinessData) => `[Identity & Purpose]
+  beauty_salon: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar citas de manera cálida y profesional.
 
 [Instrucciones]
@@ -323,7 +349,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé amable y atento/a
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -356,7 +383,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Algunos tratamientos requieren más tiempo
 - Sugiere servicios complementarios cuando sea apropiado`,
 
-  law_firm: (business: BusinessData) => `[Identity & Purpose]
+  law_firm: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar consultas legales de manera profesional y confidencial.
 
 [Instrucciones]
@@ -365,7 +392,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé profesional y discreto/a
 - Si falta información, pregunta de manera formal
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -397,7 +425,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Mantiene estricta confidencialidad
 - NO proporciona asesoramiento legal (solo el abogado)`,
 
-  consulting: (business: BusinessData) => `[Identity & Purpose]
+  consulting: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar reuniones de consultoría de manera profesional y eficiente.
 
 [Instrucciones]
@@ -406,7 +434,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar r
 - Confirma los datos antes de agendar
 - Sé profesional y organizado/a
 - Si falta información, pregunta de manera directa
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -438,7 +467,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Confirmación requerida 24 horas antes
 - Para proyectos extensos, derivar a reunión inicial`,
 
-  real_estate: (business: BusinessData) => `[Identity & Purpose]
+  real_estate: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar visitas y reuniones de manera profesional y entusiasta.
 
 [Instrucciones]
@@ -447,7 +476,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar v
 - Confirma los datos antes de agendar
 - Sé profesional y servicial
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -478,7 +508,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Confirma disponibilidad de la propiedad
 - Para múltiples visitas, organizar recorrido eficiente`,
 
-  automotive: (business: BusinessData) => `[Identity & Purpose]
+  automotive: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar turnos de servicio de manera profesional y eficiente.
 
 [Instrucciones]
@@ -487,7 +517,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar t
 - Confirma los datos antes de agendar
 - Sé profesional y técnico/a cuando sea necesario
 - Si falta información, pregunta de manera directa
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -520,7 +551,7 @@ ${business.email ? `- Email: ${business.email}` : ''}
 - Para reparaciones complejas, requiere diagnóstico previo
 - Menciona si es necesario dejar el vehículo`,
 
-  other: (business: BusinessData) => `[Identity & Purpose]
+  other: (business: BusinessData, language?: string) => `[Identity & Purpose]
 Eres ${generateBusinessDescription(business)} Tu función principal es agendar citas y atender consultas de manera profesional y amigable.
 
 [Instrucciones]
@@ -529,7 +560,8 @@ Eres ${generateBusinessDescription(business)} Tu función principal es agendar c
 - Confirma los datos antes de agendar
 - Sé paciente y amable
 - Si falta información, pregunta de manera natural
-- Siempre habla en Español de Argentina
+${languageInstruction(language)}
+${emailValidationInstruction}
 
 [Información a extraer]
 ${generateInformationToExtract(business.required_fields)}
@@ -581,8 +613,9 @@ function formatBusinessHours(hours: any): string {
 }
 
 // Función para obtener el prompt según la industria
-export function getPromptForIndustry(industry: string, businessData: BusinessData): string {
+export function getPromptForIndustry(industry: string, businessData: BusinessData, language?: string): string {
   const promptGenerator = INDUSTRY_PROMPTS[industry as keyof typeof INDUSTRY_PROMPTS] || INDUSTRY_PROMPTS.other;
-  return promptGenerator(businessData);
+  // Adjuntar apéndice con flujo y tools
+  return `${promptGenerator(businessData, language)}${getSchedulingAppendix(language)}`;
 }
 

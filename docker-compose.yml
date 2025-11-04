@@ -85,7 +85,7 @@ services:
   #     NEXT_PUBLIC_VAPI_ASSISTANT_ID: ${NEXT_PUBLIC_VAPI_ASSISTANT_ID:-d4b41f08-9198-41d2-b935-d2d53d960921}
       
   #     # N8N Webhook
-  #     NEXT_PUBLIC_N8N_WEBHOOK_URL: ${NEXT_PUBLIC_N8N_WEBHOOK_URL:-https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook/elevenlabs-appointment}
+  #     NEXT_PUBLIC_N8N_WEBHOOK_URL: ${NEXT_PUBLIC_N8N_WEBHOOK_URL:-https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook/vapi-appointment}
       
   #     # Node Environment
   #     NODE_ENV: development
@@ -130,6 +130,16 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    
+  # Ngrok - Túnel HTTPS para backend
+  ngrok-backend:
+    image: ngrok/ngrok:latest
+    container_name: receptionistai-ngrok-backend
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN_BACKEND}
+    command: http backend:3001 --log=stdout
+    networks:
+      - receptionistai-network
 
   # Ngrok - Túnel HTTPS para VAPI
   ngrok:

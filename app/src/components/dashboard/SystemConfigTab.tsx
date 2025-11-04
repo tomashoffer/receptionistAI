@@ -2,29 +2,15 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { elevenlabsService } from '@/services/vapi.service';
-import { apiService } from '@/services/api.service';
 import { useUserStore } from '@/stores/userStore';
 
 // Componente wrapper para el widget de ElevenLabs que aplica correctamente los atributos
 interface ElevenLabsWidgetProps {
   agentId?: string;
-  actionText?: string;
-  startCallText?: string;
-  endCallText?: string;
-  expandText?: string;
-  listeningText?: string;
-  speakingText?: string;
 }
 
 const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   agentId,
-  actionText,
-  startCallText,
-  endCallText,
-  expandText,
-  listeningText,
-  speakingText,
 }) => {
   const widgetRef = useRef<HTMLElement>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
@@ -69,15 +55,9 @@ const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       widget.setAttribute('placement', 'center');
       widget.setAttribute('transcript-enabled', 'true');
       
-      // Establecer textos personalizados si están definidos
-      if (actionText) widget.setAttribute('action-text', actionText);
-      if (startCallText) widget.setAttribute('start-call-text', startCallText);
-      if (endCallText) widget.setAttribute('end-call-text', endCallText);
-      if (expandText) widget.setAttribute('expand-text', expandText);
-      if (listeningText) widget.setAttribute('listening-text', listeningText);
-      if (speakingText) widget.setAttribute('speaking-text', speakingText);
+      // Los textos ahora vienen configurados desde platform_settings del agente
     }
-  }, [agentId, actionText, startCallText, endCallText, expandText, listeningText, speakingText, scriptLoaded]);
+  }, [agentId, scriptLoaded]);
 
   if (!agentId) return null;
 
@@ -544,7 +524,7 @@ export default function SystemConfigTab({
                     <option value="">{isLoadingVoices ? 'Cargando voces...' : 'Seleccionar voz...'}</option>
                     {availableVoices.map((voice) => (
                       <option key={voice.id} value={voice.id}>
-                        {voice.name} ({voice.gender === 'male' ? 'Masculina' : 'Femenina'} - {voice.provider === 'azure' ? 'Azure' : voice.provider === 'elevenlabs' ? 'ElevenLabs' : 'Vapi'})
+                        {voice.name} ({voice.gender === 'male' ? 'Masculina' : 'Femenina'} - {voice.provider === 'azure' ? 'Azure' : voice.provider === 'elevenlabs' ? 'ElevenLabs' : voice.provider || 'Desconocido'})
                       </option>
                     ))}
                   </select>
@@ -730,12 +710,6 @@ export default function SystemConfigTab({
                   {typeof window !== 'undefined' && (
                     <ElevenLabsWidget
                       agentId={activeBusiness?.assistant?.vapi_assistant_id}
-                      actionText="Probar tu asistente"
-                      startCallText="Empezar conversación"
-                      endCallText="Finalizar llamada"
-                      expandText="Abrir chat"
-                      listeningText="Escuchando..."
-                      speakingText="Asistente hablando"
                     />
                   )}
                 </div>

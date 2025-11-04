@@ -17,6 +17,7 @@ import { WebhookModule } from './modules/webhooks/webhook.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
 import { ElevenlabsModule } from './modules/elevenlabs/elevenlabs.module';
 import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.module';
+import { UtilsModule } from './modules/utils/utils.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.
     AssistantModule,
     ElevenlabsModule,
     GoogleCalendarModule,
+    UtilsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

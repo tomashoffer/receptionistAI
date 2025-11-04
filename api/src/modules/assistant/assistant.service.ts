@@ -156,6 +156,13 @@ export class AssistantService {
       required_fields: requiredFields, // Usar los campos pasados como parámetro
     };
 
-    return getPromptForIndustry(business.industry, businessData);
+    // Detectar idioma del assistant si existe (es-AR por defecto)
+    let assistantLanguage = 'es-AR';
+    try {
+      const assistant = await this.getAssistantByBusinessId(businessId);
+      if (assistant?.language) assistantLanguage = assistant.language;
+    } catch {}
+
+    return getPromptForIndustry(business.industry, businessData, assistantLanguage);
   }
 }

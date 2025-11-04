@@ -22,6 +22,17 @@ export interface GoogleCalendarStatus {
   connected_at: string | null;
 }
 
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description: string;
+  start: string;
+  end: string;
+  location?: string;
+  htmlLink?: string;
+  colorId?: string;
+}
+
 export const appointmentsService = {
   async getStatus(businessId: string): Promise<GoogleCalendarStatus> {
     const response = await fetch(`${API_BASE_URL}/google-calendar/status/${businessId}`, {
@@ -119,6 +130,28 @@ export const appointmentsService = {
     if (!response.ok) {
       throw new Error('Error eliminando appointment');
     }
+  },
+
+  async getGoogleCalendarEvents(businessId: string, timeMin?: string, timeMax?: string): Promise<GoogleCalendarEvent[]> {
+    const params = new URLSearchParams();
+    if (timeMin) params.append('timeMin', timeMin);
+    if (timeMax) params.append('timeMax', timeMax);
+    
+    const url = `${API_BASE_URL}/google-calendar/events/${businessId}${params.toString() ? `?${params.toString()}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error obteniendo eventos de Google Calendar');
+    }
+    
+    return response.json();
   },
 };
 

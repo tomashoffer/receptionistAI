@@ -162,5 +162,3 @@ class ElevenlabsService {
 
 export const elevenlabsService = new ElevenlabsService();
 
-// Legacy export for compatibility
-export const vapiService = elevenlabsService;

@@ -72,9 +72,10 @@ export class ElevenlabsService {
         .toLowerCase();
       const toolName = `create_appointment_${cleanBusinessName}`;
       
-      // 1️⃣ PRIMERO crear la Tool
-      this.logger.log('🚀 Creando tool en ElevenLabs...');
-      let toolId;
+      // 1️⃣ PRIMERO crear las Tools (create_appointment y check_availability)
+      this.logger.log('🚀 Creando tools en ElevenLabs...');
+      let createToolId: string | undefined;
+      let availabilityToolId: string | undefined;
       
       const toolResponse = await axios.post(
         `${this.elevenlabsBaseUrl}/v1/convai/tools`,
@@ -100,8 +101,8 @@ export class ElevenlabsService {
                   email: { type: 'string', description: 'Email del cliente' },
                   phone: { type: 'string', description: 'Teléfono del cliente' },
                   service: { type: 'string', description: 'Tipo de servicio' },
-                  date: { type: 'string', description: 'Fecha YYYY-MM-DD' },
-                  time: { type: 'string', description: 'Hora HH:MM 24h' },
+                  date: { type: 'string', description: 'Fecha en formato DD-MM-YYYY (ej: "03-11-2025" para 3 de noviembre de 2025). REQUERIDO.' },
+                  time: { type: 'string', description: 'Hora en formato HH:MM de 24 horas (ej: "09:30" o "14:00"). REQUERIDO.' },
                   notes: { type: 'string', description: 'Notas opcionales' }
                 }
               }
@@ -115,16 +116,173 @@ export class ElevenlabsService {
           }
         }
       );
+      createToolId = toolResponse.data.id;
+      this.logger.log(`✅ Tool create_appointment creada: ${createToolId}`);
       
-      toolId = toolResponse.data.id;
-      this.logger.log(`✅ Tool creada exitosamente: ${toolId}`);
-      
-      if (!toolId) {
+      if (!createToolId) {
         throw new Error('No se pudo crear la tool en ElevenLabs');
       }
 
-      // 2️⃣ AHORA crear el Agent con la tool asociada
-      this.logger.log(`🚀 Creando agent en ElevenLabs con tool_id: ${toolId}`);
+      // Crear tool de disponibilidad (GET)
+      const toolBusinessId = createAssistantDto.business_id || createAssistantDto.businessId;
+      const availabilityBaseUrl = (() => {
+        // Usar WEBHOOK_URL_BACKEND para el backend
+        const raw = this.configService.get<string>('WEBHOOK_URL_BACKEND');
+        if (raw) {
+          return raw.replace(/\/$/, '');
+        }
+        const base = this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001';
+        return base;
+      })();
+
+      const availabilityResponse = await axios.post(
+        `${this.elevenlabsBaseUrl}/v1/convai/tools`,
+        {
+          tool_config: {
+            type: 'webhook',
+            name: `check_availability_${cleanBusinessName}`,
+            description: 'CRÍTICO: Verifica si un horario específico está disponible en el Google Calendar. REQUISITOS OBLIGATORIOS: 1) Debes tener la fecha en formato YYYY-MM-DD (ej: "2025-11-03") 2) Debes tener la hora en formato HH:MM (ej: "09:30"). NO llames esta tool si no tienes AMBOS valores. NO pases undefined o valores vacíos. Esta tool requiere EXACTAMENTE dos parámetros: "date" (string YYYY-MM-DD) y "time" (string HH:MM). SIEMPRE verifica disponibilidad ANTES de crear una cita.',
+            response_timeout_secs: 30,
+            disable_interruptions: false,
+            force_pre_tool_speech: false,
+            tool_call_sound: 'typing',
+            tool_call_sound_behavior: 'auto',
+            api_schema: {
+              url: `${availabilityBaseUrl}/google-calendar/availability/${toolBusinessId}`,
+              method: 'GET',
+              query_params_schema: {
+                properties: {
+                  date: {
+                    type: 'string',
+                    description: 'Fecha en formato YYYY-MM-DD (obtenida de resolve_date). Ejemplo: "2025-11-03". REQUERIDO.'
+                  },
+                  time: {
+                    type: 'string',
+                    description: 'Hora en formato HH:MM de 24 horas. Ejemplo: "09:30" o "14:00". REQUERIDO.'
+                  }
+                },
+                required: ['date', 'time']
+              }
+            }
+          }
+        },
+        {
+          headers: {
+            'xi-api-key': this.elevenlabsApiKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      availabilityToolId = availabilityResponse.data.id;
+      this.logger.log(`✅ Tool check_availability creada: ${availabilityToolId}`);
+
+      // Crear tool de fecha/hora actual (GET)
+      const nowUrl = (() => {
+        const raw = this.configService.get<string>('WEBHOOK_URL_BACKEND');
+        if (raw) {
+          return raw.replace(/\/$/, '') + `/utils/now`;
+        }
+        const base = this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001';
+        return `${base}/utils/now`;
+      })();
+
+      let nowToolId: string | undefined;
+      try {
+        const nowToolResponse = await axios.post(
+          `${this.elevenlabsBaseUrl}/v1/convai/tools`,
+          {
+            tool_config: {
+              type: 'webhook',
+              name: `get_current_datetime_${cleanBusinessName}`,
+              description: 'Obtiene la fecha y hora actuales y la zona horaria para interpretar fechas del usuario',
+              response_timeout_secs: 15,
+              disable_interruptions: false,
+              force_pre_tool_speech: false,
+              tool_call_sound: 'typing',
+              tool_call_sound_behavior: 'auto',
+              api_schema: {
+                url: nowUrl,
+                method: 'GET'
+              }
+            }
+          },
+          {
+            headers: {
+              'xi-api-key': this.elevenlabsApiKey,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        nowToolId = nowToolResponse.data.id;
+        this.logger.log(`✅ Tool get_current_datetime creada: ${nowToolId}`);
+      } catch (e) {
+        this.logger.warn('No se pudo crear la tool get_current_datetime (continuando de todos modos):', e?.response?.data || e.message);
+      }
+
+      // Crear tool resolve_date (GET)
+      const resolveBaseUrl = (() => {
+        const raw = this.configService.get<string>('WEBHOOK_URL_BACKEND');
+        const base = raw ? raw.replace(/\/$/, '') : (this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001');
+        return base;
+      })();
+
+      let resolveToolId: string | undefined;
+      try {
+        const resolveResp = await axios.post(
+          `${this.elevenlabsBaseUrl}/v1/convai/tools`,
+          {
+            tool_config: {
+              type: 'webhook',
+              name: `resolve_date_${cleanBusinessName}`,
+              description: 'Convierte una fecha en texto a formato YYYY-MM-DD y devuelve el día de la semana',
+              response_timeout_secs: 15,
+              disable_interruptions: false,
+              force_pre_tool_speech: false,
+              tool_call_sound: 'typing',
+              tool_call_sound_behavior: 'auto',
+              api_schema: {
+                url: `${resolveBaseUrl}/utils/resolve-date`,
+                method: 'GET',
+                query_params_schema: {
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'Fecha como texto del usuario (ej: "mañana", "3 de noviembre", "próximo lunes")'
+                    },
+                    tz: {
+                      type: 'string',
+                      description: 'Zona horaria IANA, ej: America/Argentina/Buenos_Aires'
+                    },
+                    lang: {
+                      type: 'string',
+                      description: 'Idioma: "es" o "en"'
+                    }
+                  },
+                  required: ['text']
+                }
+              }
+            }
+          },
+          { headers: { 'xi-api-key': this.elevenlabsApiKey, 'Content-Type': 'application/json' } }
+        );
+        resolveToolId = resolveResp.data.id;
+        this.logger.log(`✅ Tool resolve_date creada: ${resolveToolId}`);
+      } catch (e) {
+        this.logger.warn('No se pudo crear la tool resolve_date (continuando):', e?.response?.data || e.message);
+      }
+
+      // 2️⃣ AHORA crear el Agent con las tools asociadas
+      const agentToolIds = [createToolId, availabilityToolId, nowToolId, resolveToolId].filter(Boolean) as string[];
+      this.logger.log(`🚀 Creando agent en ElevenLabs con tools: ${agentToolIds.join(', ')}`);
+      
+      // Seleccionar el modelo LLM (usar el del DTO o un modelo mejor por defecto)
+      // Modelos recomendados para agentes: gpt-5-mini, gemini-2.5-flash, claude-sonnet-4.5
+      const selectedLLM = createAssistantDto.model_name || 'gpt-5-mini';
+      this.logger.log(`🤖 Usando modelo LLM: ${selectedLLM}`);
+      
+      // Configurar textos del widget según el idioma
+      const widgetTexts = this.getWidgetTexts(language);
+
       const elevenlabsAgentData = {
         name: createAssistantDto.name || 'Recepcionista AI',
         conversation_config: {
@@ -135,12 +293,17 @@ export class ElevenlabsService {
               prompt: this.buildPromptWithTools((createAssistantDto.prompt || '').substring(0, 1000), webhookUrl),
               llm: 'gpt-4o-mini',
               // Asociar la tool directamente en el agent
-              ...(toolId ? { tool_ids: [toolId] } : {})
+              ...(agentToolIds.length ? { tool_ids: agentToolIds } : {})
             }
           },
           tts: {
             model_id: 'eleven_turbo_v2_5',
             voice_id: selectedVoice.id
+          }
+        },
+        platform_settings: {
+          widget: {
+            text_contents: widgetTexts
           }
         }
       };
@@ -163,8 +326,8 @@ export class ElevenlabsService {
 
         this.logger.log('ElevenLabs agent created successfully:', elevenlabsResponse.data);
         
-        if (toolId) {
-          this.logger.log(`✅ Tool ${toolId} asociada al agent ${elevenlabsResponse.data.agent_id} en el payload`);
+        if (agentToolIds.length) {
+          this.logger.log(`✅ Tools [${agentToolIds.join(', ')}] asociadas al agent ${elevenlabsResponse.data.agent_id}`);
         }
         
       } catch (apiError: any) {
@@ -190,13 +353,10 @@ export class ElevenlabsService {
       }
 
       // Construir el objeto de tool con el ID de ElevenLabs
-      const toolsWithId = createAssistantDto.tools?.map((tool: any) => {
-        // Si viene el tool desde el frontend, agregar el ID
-        if (tool && toolId) {
-          return {
-            ...tool,
-            id: toolId // Agregar el ID de la tool de ElevenLabs
-          };
+      const localToolIds = [createToolId, availabilityToolId].filter(Boolean) as string[];
+      const toolsWithId = createAssistantDto.tools?.map((tool: any, idx: number) => {
+        if (tool && localToolIds[idx]) {
+          return { ...tool, id: localToolIds[idx] };
         }
         return tool;
       });
@@ -212,7 +372,7 @@ export class ElevenlabsService {
         voice_provider: VoiceProvider.ELEVENLABS,
         language: selectedVoice.language,
         model_provider: ModelProvider.OPENAI,
-        model_name: 'gpt-4o-mini',
+        model_name: selectedLLM, // Usar el mismo modelo LLM que se usó para crear el agente
         tools: toolsWithId || null,
         required_fields: createAssistantDto.required_fields || null,
         server_url: createAssistantDto.server_url || null,
@@ -254,16 +414,23 @@ export class ElevenlabsService {
   }
 
   private buildWebhookUrl(businessId: string): string {
-    // Usar el webhook de ngrok si está configurado (N8N intermedio)
-    const ngrokUrl = this.configService.get<string>('WEBHOOK_URL');
-    if (ngrokUrl) {
-      // URL completa de N8N que luego reenvía al backend
-      return `${ngrokUrl}/webhook-test/elevenlabs-appointment`;
+    // Usar el webhook de ngrok del backend si está configurado (para HTTPS público)
+    const webhookUrl = this.configService.get<string>('WEBHOOK_URL_BACKEND');
+    if (webhookUrl) {
+      // Si WEBHOOK_URL_BACKEND ya incluye el path completo, usarlo tal cual
+      // Si solo incluye la base URL de ngrok, construir el path completo
+      if (webhookUrl.includes('/webhooks')) {
+        // Ya tiene el path, solo agregar el businessId
+        return webhookUrl.replace(':businessId', businessId).replace('{businessId}', businessId);
+      } else {
+        // Solo tiene la base URL, construir el path completo
+        return `${webhookUrl}/webhooks/elevenlabs/appointment/${businessId}`;
+      }
     }
     
-    // Si no hay ngrok, usar localhost directo
+    // Si no hay ngrok, usar localhost directo (solo para desarrollo local)
     const baseUrl = this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001';
-    return `${baseUrl}/api/webhooks/elevenlabs/appointment/${businessId}`;
+    return `${baseUrl}/webhooks/elevenlabs/appointment/${businessId}`;
   }
 
   async updateAssistant(agentId: string, updateAssistantDto: Partial<CreateAssistantDto>) {
@@ -413,8 +580,15 @@ export class ElevenlabsService {
       
       this.logger.log('Prompt que se enviará:', promptText.substring(0, 200) + '...');
 
+      // Seleccionar el modelo LLM para actualización
+      const selectedLLM = updateAssistantDto.model_name || 'gpt-5-mini';
+      this.logger.log(`🤖 Actualizando con modelo LLM: ${selectedLLM}`);
+
       // Construir el payload para actualizar el agent
       // Mantener los tool_ids existentes para que las tools sigan asociadas
+      // Obtener textos del widget según el idioma
+      const widgetTexts = this.getWidgetTexts(language);
+
       const updatePayload: any = {
         conversation_config: {
           agent: {
@@ -422,13 +596,20 @@ export class ElevenlabsService {
             language: language,
             prompt: {
               prompt: promptText, // Prompt completo sin limitación
-              llm: 'gpt-4o-mini',
+              llm: selectedLLM,
+              temperature: 0.0, // Configuración de temperatura para mayor precisión
+              reasoning_effort: 'medium', // Esfuerzo de razonamiento medio para mejor comprensión de lógica temporal
               tool_ids: currentToolIds // Mantener las tools existentes asociadas
             }
           },
           tts: {
             model_id: 'eleven_turbo_v2_5',
             voice_id: selectedVoice.id
+          }
+        },
+        platform_settings: {
+          widget: {
+            text_contents: widgetTexts
           }
         }
       };
@@ -567,59 +748,87 @@ export class ElevenlabsService {
 
 ## SISTEMA DE AGENDAMIENTO AUTOMÁTICO
 
-Tienes acceso a un sistema automático de agendamiento de citas. Cuando el cliente quiera agendar una cita, sigue estos pasos:
+### RECOPILAR INFORMACIÓN:
 
-### 1. RECOPILAR INFORMACIÓN (EN ESTE ORDEN):
+1. **Nombre** - Si hablas español: Matías, José, Juan (no Matthias, Joseph, John)
+2. **Email** - Repite usando "arroba" (ej: "matias arroba gmail punto com"). Si dudas, pide que lo deletreen.
+3. **Teléfono**
+4. **Servicio**
+5. **Fecha** - Si dice "mañana" o fechas relativas, usa la tool "resolve_date". Guarda en formato YYYY-MM-DD (ej: 2025-11-03)
+6. **Hora** - Formato 24h (ej: 09:30, 14:00)
 
-1. **Nombre completo del cliente**
-   - Pregunta: "¿Cuál es tu nombre completo?"
+### VERIFICAR DISPONIBILIDAD:
 
-2. **Email del cliente**
-   - Pregunta: "¿Cuál es tu email?"
-   - Valida que tenga formato de email válido (contenga @)
+Cuando tengas fecha y hora, llama "check_availability" con:
+- date: YYYY-MM-DD (ej: "2025-11-03")
+- time: HH:MM (ej: "09:30")
 
-3. **Teléfono del cliente**
-   - Pregunta: "¿Cuál es tu número de teléfono?"
+### CREAR CITA:
 
-4. **Tipo de servicio**
-   - Pregunta: "¿Qué tipo de servicio necesitas?"
-   - Opciones: consulta, tratamiento, seguimiento, emergencia
+Si hay disponibilidad, llama "create_appointment" con:
+- name, email, phone, service
+- date: DD-MM-YYYY (ej: "03-11-2025") ← Convierte de YYYY-MM-DD a DD-MM-YYYY
+- time: HH:MM (ej: "09:30")
 
-5. **Fecha de la cita**
-   - Pregunta: "¿Qué fecha prefieres para la cita?"
-   - Formato debe ser: YYYY-MM-DD
-   - Ejemplo: 2025-11-15 para el 15 de noviembre de 2025
-
-6. **Hora de la cita**
-   - Pregunta: "¿A qué hora te gustaría la cita?"
-   - Formato: HH:MM en formato 24h
-   - Ejemplos: 09:30 (9:30 AM), 14:00 (2:00 PM), 16:30 (4:30 PM)
-
-### 2. CUANDO TENGAS TODOS LOS DATOS:
-
-Confirma con el cliente:
-"Perfecto [nombre], voy a agendar tu [tipo_servicio] para el [fecha] a las [hora]. Recibirás un email de confirmación en [email]."
-
-Luego, di:
-"Estoy procesando tu solicitud..." (breve pausa)
-
-Y finalmente:
-"Tu cita ha sido confirmada. Recibirás un email con todos los detalles en los próximos minutos."
-
-### 3. IMPORTANTE:
-
-- NO menciones URLs, webhooks o sistemas técnicos al cliente
+### IMPORTANTE:
+- Usa "arroba" al repetir emails en español
+- Nombres en español (Matías, no Matthias)
+- NO menciones sistemas técnicos
 - Sé natural y conversacional
-- Si falta algún dato, pregúntalo de forma amigable
-- Siempre confirma antes de "agendar"
-- Mantén un tono profesional y cálido
-
-### FORMATO DE LOS DATOS:
-- Fecha: **SIEMPRE** en formato YYYY-MM-DD
-- Hora: **SIEMPRE** en formato 24h (09:00, 14:30, etc.)
-- Email: Validar que contenga @ y sea válido
-- Teléfono: Aceptar con código de país si lo incluye
 `;
+  }
+
+  /**
+   * Obtiene los textos del widget según el idioma
+   * Según la documentación de ElevenLabs, los campos son:
+   * - main_label: Texto principal del widget
+   * - start_call: Texto para iniciar llamada
+   * - start_chat: Texto para iniciar chat
+   * - new_call: Texto para nueva llamada
+   * - end_call: Texto para finalizar llamada
+   * - mute_microphone: Texto para silenciar micrófono
+   * - change_language: Texto para cambiar idioma
+   * - collapse: Texto para colapsar
+   * - expand: Texto para expandir
+   */
+  private getWidgetTexts(language?: string): {
+    main_label?: string;
+    start_call?: string;
+    start_chat?: string;
+    new_call?: string;
+    end_call?: string;
+    mute_microphone?: string;
+    change_language?: string;
+    collapse?: string;
+    expand?: string;
+  } {
+    const isSpanish = (language || '').toLowerCase().startsWith('es');
+    
+    if (isSpanish) {
+      return {
+        main_label: '¿Necesitas ayuda?',
+        start_call: 'Iniciar llamada',
+        start_chat: 'Iniciar chat',
+        new_call: 'Nueva llamada',
+        end_call: 'Finalizar llamada',
+        mute_microphone: 'Silenciar micrófono',
+        change_language: 'Cambiar idioma',
+        collapse: 'Colapsar',
+        expand: 'Expandir'
+      };
+    } else {
+      return {
+        main_label: 'Need help?',
+        start_call: 'Start a call',
+        start_chat: 'Start a chat',
+        new_call: 'New call',
+        end_call: 'End',
+        mute_microphone: 'Mute microphone',
+        change_language: 'Change language',
+        collapse: 'Collapse',
+        expand: 'Expand'
+      };
+    }
   }
 }
 
