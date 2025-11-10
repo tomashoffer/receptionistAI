@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 
 interface User {
   id: string;
@@ -65,6 +65,7 @@ interface UserStore {
   // Negocios del usuario
   businesses: Business[];
   activeBusiness: Business | null;
+  _hasHydrated: boolean; // Flag interno para saber si ya se hidrato desde localStorage
   
   // Métodos de usuario
   setUser: (user: User | null) => void;
@@ -77,6 +78,7 @@ interface UserStore {
   setActiveBusiness: (business: Business | null) => void;
   addBusiness: (business: Business) => void;
   updateBusiness: (businessId: string, updates: Partial<Business>) => void;
+  setHasHydrated: (value: boolean) => void;
   
   // Método para limpiar todo
   reset: () => void;
@@ -87,13 +89,15 @@ interface UserStore {
 
 export const useUserStore = create<UserStore>()(
   devtools(
-    (set) => ({
+    persist(
+      (set) => ({
       // Estado inicial
       user: null,
       isLoading: true,
       isLoggingOut: false,
       businesses: [],
       activeBusiness: null,
+      _hasHydrated: false,
       
       // Métodos de usuario
       setUser: (user) => set({ user }),
@@ -128,6 +132,7 @@ export const useUserStore = create<UserStore>()(
       return newState;
     });
   },
+  setHasHydrated: (value) => set({ _hasHydrated: value }),
   
   // Limpiar todo
   reset: () => set({ 
@@ -144,6 +149,21 @@ export const useUserStore = create<UserStore>()(
         return state;
       },
     }),
+    {
+      name: 'user-store-storage',
+      storage: createJSONStorage(() => localStorage),
+      // Solo persistir activeBusiness
+      partialize: (state) => ({ 
+        activeBusiness: state.activeBusiness 
+      }),
+      onRehydrateStorage: () => (state) => {
+        console.log('💧 Store hydrated from localStorage:', state?.activeBusiness?.name);
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
+    }
+  ),
     {
       name: 'user-store', // Nombre para Redux DevTools
     }

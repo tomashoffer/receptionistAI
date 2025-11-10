@@ -87,10 +87,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Enviar respuesta al cliente
       client.emit('voice_response', result);
 
-      // Si hay una respuesta de texto, generar audio con ElevenLabs
+      // Si hay una respuesta de texto, generar audio con OpenAI TTS
       if (result.response) {
         try {
-          const audioBuffer = await this.voiceService.generateSpeechWithElevenLabs(result.response);
+          const audioBuffer = await this.voiceService.generateSpeech(result.response);
           
           // Enviar audio al cliente
           client.emit('voice_audio_response', {
@@ -99,7 +99,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             sessionId: data.sessionId,
           });
         } catch (error) {
-          this.logger.error('Error generando audio con ElevenLabs:', error);
+          this.logger.error('Error generando audio:', error);
           // Fallback a notificación de texto
           client.emit('voice_ended', { sessionId: data.sessionId });
         }
@@ -130,10 +130,10 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Enviar respuesta al cliente
       client.emit('voice_response', result);
 
-      // Generar audio con ElevenLabs
+      // Generar audio con OpenAI TTS
       if (result.response) {
         try {
-          const audioBuffer = await this.voiceService.generateSpeechWithElevenLabs(result.response);
+          const audioBuffer = await this.voiceService.generateSpeech(result.response);
           
           client.emit('voice_audio_response', {
             audio: audioBuffer.toString('base64'),
@@ -141,7 +141,7 @@ export class VoiceGateway implements OnGatewayConnection, OnGatewayDisconnect {
             sessionId: data.sessionId,
           });
         } catch (error) {
-          this.logger.error('Error generando audio con ElevenLabs:', error);
+          this.logger.error('Error generando audio:', error);
           client.emit('voice_ended', { sessionId: data.sessionId });
         }
       }

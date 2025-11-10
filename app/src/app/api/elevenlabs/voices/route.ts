@@ -4,8 +4,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function GET(request: NextRequest) {
   try {
-    // Obtener voces del backend
-    const response = await fetch(`${API_BASE_URL}/elevenlabs/voices`, {
+    // Obtener voces del backend (endpoint de Vapi)
+    const response = await fetch(`${API_BASE_URL}/vapi/voices`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -28,28 +28,52 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error en GET /api/elevenlabs/voices:', error);
     
-    // Devolver voces por defecto en caso de error
+    // Devolver voces por defecto de 11labs (voces de ElevenLabs disponibles en Vapi) en caso de error
     const fallbackVoices = [
       {
-        id: 'p7AwDmKvTdoHTBuueGvP',
-        name: 'Malena (Voz Femenina - Español)',
+        id: '1WXz8v08ntDcSTeVXMN2',
+        name: 'Malena Tango',
         language: 'es-ES',
         gender: 'female',
-        provider: 'elevenlabs',
+        provider: '11labs',
+        recommended: true,
       },
       {
-        id: 'voivgekQLm3GYiKMHUnPVvY',
-        name: 'Agustin (Voz Masculina - Español)',
+        id: 'PBi4M0xL4G7oVYxKgqww',
+        name: 'Franco',
         language: 'es-ES',
         gender: 'male',
-        provider: 'elevenlabs',
+        provider: '11labs',
+        recommended: true,
       },
       {
-        id: 'gBTPbHzRd0ZmV75Z5Zk4',
-        name: 'Carlos (Voz Masculina - Español)',
+        id: 'bN1bDXgDIGX5lw0rtY2B',
+        name: 'Melanie',
         language: 'es-ES',
+        gender: 'female',
+        provider: '11labs',
+      },
+      {
+        id: '2qfp6zPuviqeCOZIE9RZ',
+        name: 'Christina',
+        language: 'en-US',
+        gender: 'female',
+        provider: '11labs',
+        recommended: true,
+      },
+      {
+        id: 'DHeSUVQvhhYeIxNUbtj3',
+        name: 'Christopher',
+        language: 'en-US',
         gender: 'male',
-        provider: 'elevenlabs',
+        provider: '11labs',
+      },
+      {
+        id: 'D9Thk1W7FRMgiOhy3zVI',
+        name: 'Aaron',
+        language: 'en-US',
+        gender: 'male',
+        provider: '11labs',
       },
     ];
 

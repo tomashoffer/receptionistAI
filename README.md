@@ -42,10 +42,9 @@ Un sistema inteligente de recepcionista AI que permite agendar turnos usando com
 
 - Docker y Docker Compose
 - Cuentas de API:
-  - OpenAI API Key
-  - ElevenLabs API Key
-  - Google Cloud Console (para OAuth y Calendar)
-  - VAPI API Key
+  - **Vapi AI** (para asistente de voz) - [Obtener API Key](https://vapi.ai)
+  - **OpenAI API Key** (para LLM y TTS)
+  - **Google Cloud Console** (para OAuth y Calendar)
 
 ### 1. Clonar el repositorio
 
@@ -63,7 +62,7 @@ cd receptionistAI
 cp env.docker.example .env
 
 # Edita .env con tus valores reales
-# OPENAI_API_KEY, ELEVENLABS_API_KEY, GOOGLE_CLIENT_ID, etc.
+# VAPI_API_KEY, OPENAI_API_KEY, GOOGLE_CLIENT_ID, etc.
 ```
 
 Ver [DOCKER-SETUP.md](DOCKER-SETUP.md) para instrucciones detalladas.

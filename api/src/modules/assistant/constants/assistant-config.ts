@@ -121,7 +121,7 @@ export const DEFAULT_ASSISTANT_CONFIG = {
   voice_id: 'es-ES-ElviraNeural',
   language: 'es-ES',
   model_provider: ModelProvider.OPENAI,
-  model_name: 'gpt-4o-mini',
+  model_name: 'gpt-4o',
   status: AssistantStatus.DRAFT,
   tools: DEFAULT_TOOLS.map(tool => ({
     name: tool.name,

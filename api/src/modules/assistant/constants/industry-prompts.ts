@@ -54,9 +54,55 @@ const emailValidationInstruction = '- Valida que el email tenga formato válido 
 function getSchedulingAppendix(language?: string): string {
   const isSpanish = (language || '').toLowerCase().startsWith('es');
   if (isSpanish) {
-    return `\n\n## SISTEMA DE AGENDAMIENTO AUTOMÁTICO\n\nTienes acceso a un sistema automático de agendamiento de citas. Cuando el cliente quiera agendar una cita, sigue estos pasos:\n\n### 1. ANTES DE INTERPRETAR FECHAS\n- Llama primero a la herramienta "get_current_datetime" para obtener fecha/hora actual y zona horaria.\n- Luego utiliza la herramienta "resolve_date" con el texto de fecha del usuario (y tz/lang) para normalizar a YYYY-MM-DD y obtener el día de la semana correcto.\n\n### 2. RECOPILAR INFORMACIÓN (EN ESTE ORDEN)\n1. Nombre completo del cliente\n2. Email del cliente (${emailValidationInstruction.replace('-', '').trim()})\n3. Teléfono del cliente\n4. Tipo de servicio\n5. Fecha (YYYY-MM-DD)\n6. Hora (HH:MM 24h)\n\n### 3. VERIFICAR DISPONIBILIDAD\n- Llama a "check_availability" con la fecha y hora.\n- Si no hay disponibilidad, ofrece alternativas devueltas por el sistema y vuelve a verificar.\n\n### 4. CREAR LA CITA\n- Una vez confirmada la disponibilidad y los datos, llama a "create_appointment".\n- Confirma al cliente que recibirá un email con la invitación del calendario.\n\n### 5. DIRECTRICES\n- NO menciones URLs, webhooks o sistemas técnicos.\n- Sé natural y conversacional.\n- Siempre confirma antes de agendar.\n\n### FORMATO DE LOS DATOS\n- Fecha: YYYY-MM-DD\n- Hora: HH:MM (24h)\n- Email: debe contener @\n- Teléfono: puede incluir código de país`;
+    return `
+
+## FLUJO DE AGENDAMIENTO
+
+**AL INICIO:** Llama a get_current_datetime silenciosamente. NO menciones la fecha al usuario.
+
+**RECOPILAR (pregunta UNA sola vez cada dato):**
+1. Nombre y apellido → Si suena poco común: "¿Me lo deletreás, por favor?"
+2. Email → Repite UNA vez con "ARROBA" y "PUNTO"
+3. Teléfono → Pide sin espacios. Repite UNA vez: "uno, dos, tres..." (EN ESPAÑOL, nunca en portugués)
+4. Servicio
+5. Fecha y hora → Usa resolve_date si dice "mañana"
+
+**VERIFICAR:** Di "Dame un segundito, por favor" y llama a check_availability UNA vez.
+
+**AGENDAR:** Con disponibilidad confirmada, llama a create_appointment. Di "¡Perfecto! Te agendo la cita."
+
+**TONO ARGENTINO:**
+- Usa "por favor" y "gracias" frecuentemente
+- Di "segundito" en lugar de "momento"
+- Sé cálido y amable: "¡Dale!", "¡Perfecto!", "¡Bárbaro!"
+- Al finalizar: "¡Muchas gracias!"
+
+**NÚMEROS EN ESPAÑOL (NUNCA EN PORTUGUÉS):**
+0=cero, 1=uno, 2=dos, 3=tres, 4=cuatro, 5=cinco, 6=seis, 7=siete, 8=ocho, 9=nueve
+
+**REGLAS:**
+- NO digas: "at", "dot", "slash", "arrova"
+- SIEMPRE: "ARROBA" y "PUNTO" para emails
+- NO confirmes el mismo dato 2 veces
+- NO hables en portugués NUNCA`;
   }
-  return `\n\n## AUTOMATED SCHEDULING SYSTEM\n\nYou have access to an automated scheduling system. When a user wants to book, follow these steps:\n\n### 1. BEFORE INTERPRETING DATES\n- First call the "get_current_datetime" tool to get current date/time and timezone.\n- Then use the "resolve_date" tool with the user's date text (and tz/lang) to normalize it to YYYY-MM-DD and obtain the correct weekday.\n\n### 2. COLLECT INFORMATION (IN THIS ORDER)\n1. Client full name\n2. Client email (validate it contains @)\n3. Client phone\n4. Service type\n5. Date (YYYY-MM-DD)\n6. Time (HH:MM 24h)\n\n### 3. CHECK AVAILABILITY\n- Call "check_availability" with date and time.\n- If unavailable, offer the suggested alternatives and re-check.\n\n### 4. CREATE THE APPOINTMENT\n- Once confirmed, call "create_appointment".\n- Confirm to the user they will receive a calendar invite via email.\n\n### 5. GUIDELINES\n- Do NOT mention URLs, webhooks or technical systems.\n- Be natural and conversational.\n- Always confirm before booking.\n\n### DATA FORMAT\n- Date: YYYY-MM-DD\n- Time: HH:MM (24h)\n- Email: must contain @\n- Phone: may include country code`;
+  return `
+
+## AVAILABLE TOOLS
+
+⚡ AT START: Right after greeting, call get_current_datetime WITHOUT saying anything.
+
+📅 COLLECT: Name, email, phone, service, date AND time TOGETHER.
+
+🔍 CHECK: With date+time, say "Let me check" ONCE and call check_availability.
+
+✅ BOOK: With all info, call create_appointment.
+
+RULES:
+- DON'T repeat "one moment"
+- Each tool ONCE per operation
+- Ask: "What date and time?"
+- Format: YYYY-MM-DD, HH:MM (24h)`;
 }
 
 // Función helper para generar la sección de información a extraer

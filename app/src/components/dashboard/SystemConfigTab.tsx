@@ -3,68 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PencilIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { useUserStore } from '@/stores/userStore';
-
-// Componente wrapper para el widget de ElevenLabs que aplica correctamente los atributos
-interface ElevenLabsWidgetProps {
-  agentId?: string;
-}
-
-const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
-  agentId,
-}) => {
-  const widgetRef = useRef<HTMLElement>(null);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-
-  // Verificar si el script del widget está cargado
-  useEffect(() => {
-    // Verificar si el custom element está definido
-    if (customElements.get('elevenlabs-convai')) {
-      setScriptLoaded(true);
-      return;
-    }
-    
-    // Si no está definido, verificar periódicamente
-    const interval = setInterval(() => {
-      if (customElements.get('elevenlabs-convai')) {
-        setScriptLoaded(true);
-        clearInterval(interval);
-      }
-    }, 100);
-
-    // Limpiar después de 5 segundos si no se carga
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      // Intentar de todos modos, puede que funcione
-      setScriptLoaded(true);
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, []);
-
-  // Establecer atributos cuando el elemento esté listo
-  useEffect(() => {
-    if (widgetRef.current && agentId && scriptLoaded) {
-      const widget = widgetRef.current as any;
-      
-      // Establecer atributos directamente en el elemento DOM
-      widget.setAttribute('agent-id', agentId);
-      widget.setAttribute('variant', 'full');
-      widget.setAttribute('placement', 'center');
-      widget.setAttribute('transcript-enabled', 'true');
-      
-      // Los textos ahora vienen configurados desde platform_settings del agente
-    }
-  }, [agentId, scriptLoaded]);
-
-  if (!agentId) return null;
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return <elevenlabs-convai ref={widgetRef} />;
-};
+import VapiWidget from '@/components/vapi/VapiWidget';
 
 interface SystemConfigTabProps {
   activeBusiness: any;
@@ -95,7 +34,7 @@ interface SystemConfigTabProps {
   setHasChanges: (hasChanges: boolean) => void;
   generateCreateAppointmentTool: () => any;
   updateBusiness: (businessId: string, updates: any) => void;
-  elevenlabsService: any;
+  vapiService: any;
   apiService: any;
   loadVoicesByLanguage: (language: string) => void;
   updatePromptWithCurrentFields: () => Promise<void>;
@@ -125,14 +64,51 @@ export default function SystemConfigTab({
   setHasChanges,
   generateCreateAppointmentTool,
   updateBusiness,
-  elevenlabsService,
+  vapiService,
   apiService,
   loadVoicesByLanguage,
   updatePromptWithCurrentFields,
   generateFirstMessage,
 }: SystemConfigTabProps) {
   const [isRefreshingBusiness, setIsRefreshingBusiness] = useState(false);
+  const [isLoadingWidget, setIsLoadingWidget] = useState(false);
+  const previousBusinessIdRef = useRef<string | null>(null);
   const { setActiveBusiness, setBusinesses, businesses } = useUserStore();
+
+  // Loading SOLO cuando el usuario CAMBIA de business (no en el primer render)
+  useEffect(() => {
+    const currentBusinessId = activeBusiness?.id;
+    const previousBusinessId = previousBusinessIdRef.current;
+
+    // Si es el primer render, solo guardar el ID
+    if (previousBusinessId === null) {
+      console.log('📌 SystemConfigTab - Primer render con business:', activeBusiness?.name);
+      previousBusinessIdRef.current = currentBusinessId || null;
+      return;
+    }
+
+    // Si el business cambió (usuario seleccionó otro business)
+    if (previousBusinessId !== currentBusinessId && currentBusinessId) {
+      console.log('🔄 SystemConfigTab - Usuario cambió de business:', previousBusinessId?.substring(0, 8), '→', currentBusinessId.substring(0, 8));
+      console.log('🔄 SystemConfigTab - Nuevo business:', activeBusiness.name);
+      
+      setIsLoadingWidget(true);
+      
+      // Forzar refresh completo de la página para reinicializar el widget de Vapi
+      const timer = setTimeout(() => {
+        console.log('🔄 SystemConfigTab - Haciendo refresh de página para reinicializar widget...');
+        window.location.reload();
+      }, 500);
+      
+      previousBusinessIdRef.current = currentBusinessId;
+      return () => clearTimeout(timer);
+    }
+
+    // Actualizar la referencia si cambió
+    if (previousBusinessId !== currentBusinessId) {
+      previousBusinessIdRef.current = currentBusinessId || null;
+    }
+  }, [activeBusiness?.id, activeBusiness?.name]);
 
 
   // Funciones para manejar campos personalizados
@@ -148,6 +124,9 @@ export default function SystemConfigTab({
       }));
       setNewFieldName('');
       setNewFieldType('text');
+      
+      // Marcar que hubo cambios para habilitar el botón
+      setHasChanges(true);
       
       // Actualizar el prompt cuando se agregue un campo personalizado
       setTimeout(() => updatePromptWithCurrentFields(), 100);
@@ -165,6 +144,9 @@ export default function SystemConfigTab({
         }
       })
     }));
+    
+    // Marcar que hubo cambios
+    setHasChanges(true);
     
     // Actualizar el prompt cuando se remueva un campo personalizado
     setTimeout(() => updatePromptWithCurrentFields(), 100);
@@ -212,12 +194,15 @@ export default function SystemConfigTab({
     setRecepcionistaSuccess('');
     
     try {
-      // Actualizar el assistant en ElevenLabs
+      // Actualizar el assistant en Vapi
       if (!activeBusiness.assistant?.vapi_assistant_id) {
-        throw new Error('No se encontró el ID del assistant en ElevenLabs');
+        throw new Error('No se encontró el ID del assistant en Vapi');
       }
       
-      const assistant = await elevenlabsService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
+      console.log('🔍 DEBUG - Voice ID que se va a actualizar:', recepcionistaFormData.ai_voice_id);
+      console.log('🔍 DEBUG - Assistant ID en Vapi:', activeBusiness.assistant.vapi_assistant_id);
+      
+      const assistant = await vapiService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
         name: `${activeBusiness.name}`,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -236,10 +221,10 @@ export default function SystemConfigTab({
 
       updateBusiness(activeBusiness.id, updatedBusiness as any);
       setHasChanges(false);
-      setRecepcionistaSuccess('Asistente de ElevenLabs actualizado exitosamente.');
+      setRecepcionistaSuccess('Asistente de Vapi actualizado exitosamente.');
     } catch (error: any) {
-      console.error('Error al actualizar asistente de ElevenLabs:', error);
-      setRecepcionistaError(error.message || 'Error al actualizar asistente de ElevenLabs.');
+      console.error('Error al actualizar asistente de Vapi:', error);
+      setRecepcionistaError(error.message || 'Error al actualizar asistente de Vapi.');
     } finally {
       setIsCreatingAssistant(false);
     }
@@ -260,8 +245,8 @@ export default function SystemConfigTab({
     setRecepcionistaSuccess('');
 
     try {
-      // Crear assistant en ElevenLabs
-      const assistant = await elevenlabsService.createAssistant({
+      // Crear assistant en Vapi
+      const assistant = await vapiService.createAssistant({
         name: activeBusiness.name,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -302,10 +287,10 @@ export default function SystemConfigTab({
         setIsRefreshingBusiness(false);
       }
       
-      setRecepcionistaSuccess('Asistente de ElevenLabs creado y conectado exitosamente.');
+      setRecepcionistaSuccess('Asistente de Vapi creado y conectado exitosamente.');
     } catch (error: any) {
-      console.error('Error al crear asistente de ElevenLabs:', error);
-      setRecepcionistaError(error.message || 'Error al crear asistente de ElevenLabs.');
+      console.error('Error al crear asistente de Vapi:', error);
+      setRecepcionistaError(error.message || 'Error al crear asistente de Vapi.');
     } finally {
       setIsCreatingAssistant(false);
     }
@@ -371,6 +356,13 @@ export default function SystemConfigTab({
               </svg>
             </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No tienes negocios</h3>
+          </div>
+        ) : isLoadingWidget ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-teal-500 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">Cargando {activeBusiness.name}...</p>
+            </div>
           </div>
         ) : (
           <React.Fragment key="recepcionista-config">
@@ -524,7 +516,7 @@ export default function SystemConfigTab({
                     <option value="">{isLoadingVoices ? 'Cargando voces...' : 'Seleccionar voz...'}</option>
                     {availableVoices.map((voice) => (
                       <option key={voice.id} value={voice.id}>
-                        {voice.name} ({voice.gender === 'male' ? 'Masculina' : 'Femenina'} - {voice.provider === 'azure' ? 'Azure' : voice.provider === 'elevenlabs' ? 'ElevenLabs' : voice.provider || 'Desconocido'})
+                        {voice.name} ({voice.gender === 'male' ? 'Masculina' : 'Femenina'} - {voice.provider === 'azure' ? 'Azure' : voice.provider === '11labs' ? '11labs' : voice.provider === 'elevenlabs' ? 'ElevenLabs' : voice.provider || 'Desconocido'})
                       </option>
                     ))}
                   </select>
@@ -702,20 +694,10 @@ export default function SystemConfigTab({
               </div>
             </div>
 
-            {/* Widget de ElevenLabs y Botones según si hay asistente */}
+            {/* Botones de acción: Crear o Actualizar */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-center w-full">
             {hasAssistant ? (
-              <>
-                {/* Widget de ElevenLabs */}
-                <div>
-                  {typeof window !== 'undefined' && (
-                    <ElevenLabsWidget
-                      agentId={activeBusiness?.assistant?.vapi_assistant_id}
-                    />
-                  )}
-                </div>
-
-                {/* Botón de Actualizar */}
-                <div className="mt-6 pt-6 border-t border-gray-200 flex justify-center w-full">
+                /* Botón de Actualizar - Solo si hay asistente */
                   <button
                     type="button"
                     onClick={handleUpdateAssistant}
@@ -738,11 +720,8 @@ export default function SystemConfigTab({
                       </>
                     )}
                   </button>
-                </div>
-              </>
             ) : (
               /* Botón de Crear - Solo si NO hay asistente */
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-center w-full">
                 <button
                   type="button"
                   onClick={handleCreateAssistant}
@@ -762,6 +741,29 @@ export default function SystemConfigTab({
                     <span>Crear Assistant</span>
                   )}
                 </button>
+              )}
+              </div>
+
+            {/* Widget de Vapi - Solo si hay asistente y NO está en loading */}
+            {hasAssistant && activeBusiness?.assistant?.vapi_assistant_id && !isLoadingWidget && (
+              <div className="mt-6">
+                {typeof window !== 'undefined' && (
+                  <VapiWidget
+                    key={`widget-${activeBusiness.id}-${activeBusiness.assistant?.vapi_assistant_id}`}
+                    assistantId={activeBusiness?.assistant?.vapi_assistant_id}
+                    publicKey={activeBusiness?.assistant?.vapi_public_key}
+                  />
+                )}
+              </div>
+            )}
+            
+            {/* Loading del widget (si hay assistant y está cargando) */}
+            {hasAssistant && activeBusiness?.assistant?.vapi_assistant_id && isLoadingWidget && (
+              <div className="mt-6 flex justify-center items-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Refrescando widget...</p>
+                </div>
               </div>
             )}
           </React.Fragment>

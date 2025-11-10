@@ -107,45 +107,75 @@ export class GoogleCalendarController {
     return this.googleCalendarService.getEvents(businessId, timeMin, timeMax);
   }
 
-  // Endpoint público para ElevenLabs (no requiere AuthGuard)
+  // Endpoint público para Vapi (soporta GET y POST)
   @Get('availability/:businessId')
-  @ApiOperation({ summary: 'Verificar disponibilidad de un horario en Google Calendar' })
-  async checkAvailability(
+  @ApiOperation({ summary: 'Verificar disponibilidad de un horario en Google Calendar (GET)' })
+  async checkAvailabilityGet(
     @Param('businessId') businessId: string,
     @Query('date') date: string,
     @Query('time') time: string,
-    @Query() allQueryParams: any, // Capturar todos los query params para debugging
-    @Req() req: Request, // Request completo para debugging
+    @Query() allQueryParams: any,
+    @Req() req: Request,
+  ) {
+    return this.checkAvailabilityLogic(businessId, date, time, allQueryParams, req);
+  }
+
+  @Post('availability/:businessId')
+  @ApiOperation({ summary: 'Verificar disponibilidad de un horario en Google Calendar (POST - para Vapi)' })
+  async checkAvailabilityPost(
+    @Param('businessId') businessId: string,
+    @Body() body: any,
+    @Query() query: any,
+    @Req() req: Request,
+  ) {
+    // Vapi envía parámetros en: body.message.toolCalls[0].function.arguments
+    const toolCall = body?.message?.toolCalls?.[0];
+    const args = toolCall?.function?.arguments || {};
+    
+    // Extraer date y time de los argumentos de Vapi
+    const date = args.date || body.date || query.date;
+    const time = args.time || body.time || query.time;
+    
+    this.logger.log(`📦 Vapi tool call arguments: ${JSON.stringify(args)}`);
+    
+    return this.checkAvailabilityLogic(businessId, date, time, args, req);
+  }
+
+  // Lógica compartida para GET y POST
+  private checkAvailabilityLogic(
+    businessId: string,
+    date: string,
+    time: string,
+    allParams: any,
+    req: any,
   ) {
     this.logger.log(`🔍 Verificando disponibilidad - BusinessId: ${businessId}`);
     this.logger.log(`  📅 Date recibido: ${date} (tipo: ${typeof date})`);
     this.logger.log(`  ⏰ Time recibido: ${time} (tipo: ${typeof time})`);
-    this.logger.log(`  📋 Todos los query params: ${JSON.stringify(allQueryParams)}`);
+    this.logger.log(`  📋 Todos los params: ${JSON.stringify(allParams)}`);
     this.logger.log(`  🔗 URL completa: ${req.url}`);
     this.logger.log(`  📡 Método: ${req.method}`);
-    this.logger.log(`  🌐 Headers: ${JSON.stringify(req.headers)}`);
-    this.logger.log(`  📦 Query string: ${req.url.split('?')[1] || 'NINGUNO'}`);
     
     if (!date || date === 'undefined' || date === 'null') {
       this.logger.error(`❌ Parámetro date faltante o inválido: ${date}`);
-      this.logger.error(`  Query params recibidos: ${JSON.stringify(allQueryParams)}`);
+      this.logger.error(`  Params recibidos: ${JSON.stringify(allParams)}`);
       this.logger.error(`  URL completa recibida: ${req.url}`);
       throw new BadRequestException(
         'El parámetro "date" es requerido en formato YYYY-MM-DD (ej: "2025-11-03"). ' +
         'Asegúrate de haber usado "resolve_date" primero para obtener la fecha correcta. ' +
-        `Parámetros recibidos: ${JSON.stringify(allQueryParams)}. ` +
+        `Parámetros recibidos: ${JSON.stringify(allParams)}. ` +
         `URL recibida: ${req.url}`
       );
     }
     
     if (!time || time === 'undefined' || time === 'null') {
       this.logger.error(`❌ Parámetro time faltante o inválido: ${time}`);
-      this.logger.error(`  Query params recibidos: ${JSON.stringify(allQueryParams)}`);
+      this.logger.error(`  Params recibidos: ${JSON.stringify(allParams)}`);
       this.logger.error(`  URL completa recibida: ${req.url}`);
       throw new BadRequestException(
         'El parámetro "time" es requerido en formato HH:MM (ej: "09:30" o "14:00"). ' +
         'Asegúrate de haber obtenido la hora del cliente antes de verificar disponibilidad. ' +
-        `Parámetros recibidos: ${JSON.stringify(allQueryParams)}. ` +
+        `Parámetros recibidos: ${JSON.stringify(allParams)}. ` +
         `URL recibida: ${req.url}`
       );
     }

@@ -33,7 +33,7 @@ export default function AccountConfigPage() {
 
 
   const menuItems = [
-    { id: 'overview', label: 'Resumen', action: () => router.push('/dashboard?tab=overview') },
+    { id: 'overview', label: 'Dashboard', action: () => router.push('/dashboard?tab=overview') },
     { id: 'businesses', label: 'Mis Negocios', action: () => router.push('/dashboard?tab=businesses') },
     { id: 'calls', label: 'Llamadas', action: () => router.push('/dashboard?tab=calls') },
     { id: 'system-config', label: 'Mi Recepcionista', action: () => router.push('/dashboard?tab=system-config') },

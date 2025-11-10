@@ -164,6 +164,22 @@ export class BusinessController {
     return this.businessService.removeUser(id, userId, user.id);
   }
 
+  // Eliminar asistente de un business (BD + Vapi + Tools)
+  @Delete(':id/assistant')
+  @Auth([RoleType.ADMIN, RoleType.USER])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete business assistant',
+    description: 'Delete the assistant associated with a business (removes from DB, Vapi, and all Vapi tools)'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Assistant deleted successfully from DB and Vapi'
+  })
+  deleteAssistant(@Param('id') id: string, @AuthUser() user: UserDto) {
+    return this.businessService.deleteAssistant(id, user.id);
+  }
+
   // Ruta pública para encontrar negocio por número telefónico (para webhooks)
   @Get('by-phone/:phoneNumber')
   @HttpCode(HttpStatus.OK)

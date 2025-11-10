@@ -31,11 +31,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        {/* Script del widget de ElevenLabs - Cargado globalmente */}
-        <Script
-          src="https://unpkg.com/@elevenlabs/convai-widget-embed"
-          strategy="lazyOnload"
-        />
         <DarkModeInitializer />
         <StateSyncer />
         {children}

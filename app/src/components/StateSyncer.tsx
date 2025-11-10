@@ -7,9 +7,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 // This component ensures the client-side user state is in sync with the server-side session.
 export default function StateSyncer() {
-  const { user, setUser, setIsLoading, setBusinesses, setActiveBusiness } = useUserStore();
+  const { user, setUser, setIsLoading, setBusinesses, setActiveBusiness, activeBusiness: persistedActiveBusiness, _hasHydrated } = useUserStore();
 
   useEffect(() => {
+    // Esperar a que el store se hidrate desde localStorage
+    if (!_hasHydrated) {
+      console.log('⏳ StateSyncer: Esperando hidratación del store...');
+      return;
+    }
+    
     // This effect runs once when the component mounts.
     // It checks if the user is authenticated (has a session) but the client state is empty.
     if (!user) {
@@ -58,18 +64,35 @@ export default function StateSyncer() {
                   const businessesList = Array.isArray(businessData) ? businessData : businessData ? [businessData] : [];
                   setBusinesses(businessesList);
                   
-                  // Set the first business as active by default
+                  // Determinar qué business activar
                   if (businessesList.length > 0) {
-                    const firstBusiness = businessesList[0];
+                    // Verificar si hay un activeBusiness persistido y si aún existe
+                    let businessToActivate = null;
+                    let shouldFetchFull = false;
                     
-                    // Si el business ya tiene la relación assistant, usarlo directamente
-                    if (firstBusiness.assistant) {
-                      setActiveBusiness(firstBusiness);
-                      console.log('StateSyncer: Negocios sincronizados con assistant:', businessesList);
-                    } else {
-                      // Si no tiene la relación assistant, hacer fetch completo del primer business
+                    if (persistedActiveBusiness?.id) {
+                      // Buscar el business persistido en la lista actual
+                      const foundBusiness = businessesList.find((b: any) => b.id === persistedActiveBusiness.id);
+                      if (foundBusiness) {
+                        businessToActivate = foundBusiness;
+                        shouldFetchFull = true; // Siempre actualizar con datos frescos
+                        console.log('✅ StateSyncer: Restaurando business persistido:', persistedActiveBusiness.name || persistedActiveBusiness.id);
+                      } else {
+                        console.log('⚠️ StateSyncer: Business persistido no existe más, usando primero por defecto');
+                      }
+                    }
+                    
+                    // Si no hay persistido o no existe más, usar el primero
+                    if (!businessToActivate) {
+                      businessToActivate = businessesList[0];
+                      shouldFetchFull = true;
+                      console.log('📌 StateSyncer: Usando primer business por defecto:', businessToActivate.name);
+                    }
+                    
+                    // Cargar el business completo con la relación assistant
+                    if (shouldFetchFull) {
                       try {
-                        const fullBusinessResponse = await fetch(`${API_BASE_URL}/businesses/${firstBusiness.id}`, {
+                        const fullBusinessResponse = await fetch(`${API_BASE_URL}/businesses/${businessToActivate.id}`, {
                           credentials: 'include',
                           headers: authHeaders,
                         });
@@ -77,16 +100,20 @@ export default function StateSyncer() {
                         if (fullBusinessResponse.ok) {
                           const fullBusiness = await fullBusinessResponse.json();
                           setActiveBusiness(fullBusiness);
-                          console.log('StateSyncer: Business completo cargado:', fullBusiness);
+                          console.log('✅ StateSyncer: Business completo cargado:', fullBusiness.name, 'con assistant:', !!fullBusiness.assistant);
+                        } else if (businessToActivate.assistant) {
+                          // Si ya tiene assistant en la lista, usar ese
+                          setActiveBusiness(businessToActivate);
+                          console.log('✅ StateSyncer: Usando business de lista con assistant');
                         } else {
                           // Fallback al business sin relación
-                          setActiveBusiness(firstBusiness);
-                          console.log('StateSyncer: Fallback a business sin assistant');
+                          setActiveBusiness(businessToActivate);
+                          console.log('⚠️ StateSyncer: Fallback a business sin assistant completo');
                         }
                       } catch (error) {
-                        console.error('StateSyncer: Error cargando business completo:', error);
-                        // Fallback al business sin relación
-                        setActiveBusiness(firstBusiness);
+                        console.error('❌ StateSyncer: Error cargando business completo:', error);
+                        // Fallback al business original
+                        setActiveBusiness(businessToActivate);
                       }
                     }
                     
@@ -138,7 +165,7 @@ export default function StateSyncer() {
 
       fetchUserAndBusinesses();
     }
-  }, [user, setUser, setBusinesses, setActiveBusiness]); // Dependencies ensure this runs only when needed.
+  }, [user, setUser, setBusinesses, setActiveBusiness, _hasHydrated, persistedActiveBusiness]); // Dependencies ensure this runs only when needed.
 
   // This component doesn't render anything visible
   return null;

@@ -1,18 +1,26 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business, Industry } from '../entities/business.entity';
 import { BusinessUser, UserRole } from '../entities/business-user.entity';
 import { CreateBusinessDto, UpdateBusinessDto } from '../dto/business.dto';
 import { CreateBusinessUserDto, UpdateBusinessUserDto, InviteUserDto } from '../dto/business-user.dto';
+import { AssistantService } from '../../assistant/assistant.service';
+import { VapiService } from '../../voice/vapi.service';
 
 @Injectable()
 export class BusinessService {
+  private readonly logger = new Logger(BusinessService.name);
+
   constructor(
     @InjectRepository(Business)
     private businessRepository: Repository<Business>,
     @InjectRepository(BusinessUser)
     private businessUserRepository: Repository<BusinessUser>,
+    @Inject(forwardRef(() => AssistantService))
+    private assistantService: AssistantService,
+    @Inject(forwardRef(() => VapiService))
+    private vapiService: VapiService,
   ) {}
 
   async create(createBusinessDto: CreateBusinessDto, ownerId: string): Promise<Business> {
@@ -203,5 +211,79 @@ export class BusinessService {
       where: { business_id: businessId },
       relations: ['business'],
     });
+  }
+
+  /**
+   * Eliminar el assistant de un business
+   * - Elimina todas las tools de Vapi
+   * - Elimina el assistant de Vapi
+   * - Elimina el assistant de la BD
+   * - Actualiza el business para quitar las referencias
+   */
+  async deleteAssistant(businessId: string, ownerId: string): Promise<{ message: string }> {
+    this.logger.log(`🗑️ Iniciando eliminación de assistant para business: ${businessId}`);
+
+    // 1. Verificar que el business existe y pertenece al usuario
+    const business = await this.findOne(businessId, ownerId);
+
+    if (!business.assistant_id) {
+      throw new NotFoundException('Este negocio no tiene un assistant configurado');
+    }
+
+    try {
+      // 2. Obtener el assistant con sus tools
+      const assistant = await this.assistantService.getAssistantByBusinessId(businessId);
+
+      if (!assistant) {
+        throw new NotFoundException('Assistant no encontrado en la base de datos');
+      }
+
+      // 3. Eliminar tools de Vapi (si existen)
+      if (assistant.tools && Array.isArray(assistant.tools)) {
+        this.logger.log(`🔧 Eliminando ${assistant.tools.length} tools de Vapi...`);
+        
+        for (const tool of assistant.tools) {
+          if (tool.id) {
+            try {
+              await this.vapiService.deleteTool(tool.id);
+              this.logger.log(`✅ Tool eliminada de Vapi: ${tool.name} (${tool.id})`);
+            } catch (error) {
+              this.logger.warn(`⚠️ Error eliminando tool ${tool.name}: ${error.message}`);
+              // Continuar con las demás tools
+            }
+          }
+        }
+      }
+
+      // 4. Actualizar el business para quitar referencia al assistant (ANTES de eliminar)
+      this.logger.log(`💾 Actualizando business para quitar referencia al assistant`);
+      business.assistant_id = null;
+      await this.businessRepository.save(business);
+
+      // 5. Eliminar assistant de Vapi
+      if (assistant.vapi_assistant_id) {
+        this.logger.log(`🤖 Eliminando assistant de Vapi: ${assistant.vapi_assistant_id}`);
+        try {
+          await this.vapiService.deleteAssistant(assistant.vapi_assistant_id);
+          this.logger.log('✅ Assistant eliminado de Vapi');
+        } catch (error) {
+          this.logger.warn(`⚠️ Error eliminando assistant de Vapi: ${error.message}`);
+          // Continuar con la eliminación en BD
+        }
+      }
+
+      // 6. Eliminar assistant de la BD
+      this.logger.log(`💾 Eliminando assistant de la base de datos: ${assistant.id}`);
+      await this.assistantService.deleteAssistant(businessId);
+
+      this.logger.log('✅ Assistant eliminado completamente');
+
+      return {
+        message: 'Assistant eliminado exitosamente de Vapi y la base de datos',
+      };
+    } catch (error) {
+      this.logger.error(`❌ Error eliminando assistant: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }

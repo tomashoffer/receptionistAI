@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { apiService } from '@/services/api.service';
-import { elevenlabsService } from '@/services/elevenlabs.service';
+import { vapiService } from '@/services/vapi.service';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { PlusIcon, CheckIcon, PencilIcon, Bars3Icon, PhoneIcon } from '@heroicons/react/24/outline';
 import LogoutButton from '@/components/LogoutButton';
@@ -120,7 +120,7 @@ export default function DashboardPage() {
   };
 
   // Helper function para determinar si hay assistant (usando solo store global)
-  const hasAssistant = !!activeBusiness?.assistant_id;
+  const hasAssistant = !!(activeBusiness?.assistant?.vapi_assistant_id || activeBusiness?.assistant_id);
 
   // Helper function para obtener el token de autenticación
   const getAuthToken = async () => {
@@ -207,6 +207,8 @@ export default function DashboardPage() {
   const handleSetActiveBusiness = async (businessId: string) => {
     const selectedBusiness = businesses.find((b: any) => b.id === businessId);
     if (selectedBusiness) {
+      console.log('🔄 Cambiando activeBusiness a:', selectedBusiness.name);
+      
       // Si el business ya tiene la relación assistant, usarlo directamente
       if (selectedBusiness.assistant) {
         setActiveBusiness(selectedBusiness);
@@ -227,6 +229,12 @@ export default function DashboardPage() {
       setActiveBusiness(selectedBusiness);
         }
       }
+
+      // Forzar refresh de página para reinicializar el widget de Vapi
+      setTimeout(() => {
+        console.log('🔄 Refrescando página para reinicializar widget de Vapi...');
+        window.location.reload();
+      }, 300);
     }
   };
 
@@ -583,7 +591,7 @@ export default function DashboardPage() {
         throw new Error('No se encontró el ID del assistant en ElevenLabs');
       }
       
-      const assistant = await elevenlabsService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
+      const assistant = await vapiService.updateAssistant(activeBusiness.assistant.vapi_assistant_id, {
         name: `${activeBusiness.name}`,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -593,16 +601,39 @@ export default function DashboardPage() {
         businessId: activeBusiness.id // ✅ businessId para actualizar en BD
       });
 
-      // Actualizar el business con la nueva configuración
-      const updatedBusiness = await apiService.updateBusiness(activeBusiness.id, {
-        ai_prompt: recepcionistaFormData.ai_prompt,
-        ai_voice_id: recepcionistaFormData.ai_voice_id,
-        ai_language: recepcionistaFormData.ai_language,
+      // Refrescar el business completo (con assistant actualizado) desde la BD
+      const token = await getAuthToken();
+      const refreshedBusinessResponse = await fetch(`${API_BASE_URL}/businesses/${activeBusiness.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
+      
+      if (refreshedBusinessResponse.ok) {
+        const refreshedBusiness = await refreshedBusinessResponse.json();
+        
+        // Actualizar el business en el store con los datos refrescados
+        updateBusiness(activeBusiness.id, refreshedBusiness as any);
+        setActiveBusiness(refreshedBusiness as any);
+        
+        console.log('✅ Business y assistant refrescados desde BD:', {
+          businessName: refreshedBusiness.name,
+          hasAssistant: !!refreshedBusiness.assistant,
+          requiredFields: refreshedBusiness.assistant?.required_fields,
+        });
+      } else {
+        // Fallback: actualizar solo lo que conocemos
+        const updatedBusiness = await apiService.updateBusiness(activeBusiness.id, {
+          ai_prompt: recepcionistaFormData.ai_prompt,
+          ai_voice_id: recepcionistaFormData.ai_voice_id,
+          ai_language: recepcionistaFormData.ai_language,
+        });
+        updateBusiness(activeBusiness.id, updatedBusiness as any);
+      }
 
-      updateBusiness(activeBusiness.id, updatedBusiness as any);
       setHasChanges(false);
-      setRecepcionistaSuccess('Asistente de ElevenLabs actualizado exitosamente.');
+      setRecepcionistaSuccess('Asistente actualizado exitosamente. Los cambios persisten después de refresh.');
     } catch (error: any) {
       console.error('Error al actualizar asistente de ElevenLabs:', error);
       setRecepcionistaError(error.message || 'Error al actualizar asistente de ElevenLabs.');
@@ -630,7 +661,7 @@ export default function DashboardPage() {
 
     try {
       // Crear assistant en ElevenLabs
-      const assistant = await elevenlabsService.createAssistant({
+      const assistant = await vapiService.createAssistant({
         name: activeBusiness.name,
         prompt: recepcionistaFormData.ai_prompt,
         voice: recepcionistaFormData.ai_voice_id,
@@ -706,11 +737,25 @@ export default function DashboardPage() {
 
 
   const menuItems = [
-    { id: 'overview', label: 'Resumen', action: () => { setActiveTab('overview'); router.replace('/dashboard?tab=overview'); } },
+    { id: 'overview', label: 'Dashboard', action: () => { setActiveTab('overview'); router.replace('/dashboard?tab=overview'); } },
     { id: 'businesses', label: 'Mis Negocios', action: () => { setActiveTab('businesses'); router.replace('/dashboard?tab=businesses'); } },
     { id: 'appointments', label: 'Citas / Appointments', action: () => { setActiveTab('appointments'); router.replace('/dashboard?tab=appointments'); } },
     { id: 'calls', label: 'Llamadas', action: () => { setActiveTab('calls'); router.replace('/dashboard?tab=calls'); } },
-    { id: 'system-config', label: 'Mi Recepcionista', action: () => { setActiveTab('system-config'); router.replace('/dashboard?tab=system-config'); } },
+    { 
+      id: 'system-config', 
+      label: 'Mi Recepcionista', 
+      action: () => { 
+        // Si ya estamos en system-config, hacer refresh para reinicializar el widget
+        if (activeTab === 'system-config') {
+          console.log('🔄 Ya en Mi Recepcionista - Refrescando widget de Vapi...');
+          window.location.reload();
+        } else {
+          // Si venimos de otra tab, navegar con refresh usando window.location.href
+          console.log('🔄 Navegando a Mi Recepcionista con refresh...');
+          window.location.href = '/dashboard?tab=system-config';
+        }
+      } 
+    },
     { id: 'account-config', label: 'Configuración de Mi Cuenta', action: () => router.push('/dashboard/account-config') },
   ];
 
@@ -929,7 +974,7 @@ export default function DashboardPage() {
               setHasChanges={setHasChanges}
               generateCreateAppointmentTool={generateCreateAppointmentTool}
               updateBusiness={updateBusiness}
-              elevenlabsService={elevenlabsService}
+              vapiService={vapiService}
               apiService={apiService}
               loadVoicesByLanguage={loadVoicesByLanguage}
               updatePromptWithCurrentFields={updatePromptWithCurrentFields}

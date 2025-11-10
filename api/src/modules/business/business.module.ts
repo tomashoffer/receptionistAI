@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Business } from './entities/business.entity';
 import { BusinessUser } from './entities/business-user.entity';
@@ -11,6 +11,8 @@ import { CallLogController } from './controllers/call-log.controller';
 import { BusinessGuard } from './guards/business.guard';
 import { WebhookGuard } from './guards/webhook.guard';
 import { BusinessContextInterceptor } from './interceptors/business-context.interceptor';
+import { AssistantModule } from '../assistant/assistant.module';
+import { VoiceModule } from '../voice/voice.module';
 // import { BusinessScopingMiddleware } from './middleware/business-scoping.middleware';
 
 @Module({
@@ -21,6 +23,8 @@ import { BusinessContextInterceptor } from './interceptors/business-context.inte
       CallLog,
       BusinessPlan,
     ]),
+    forwardRef(() => AssistantModule),
+    forwardRef(() => VoiceModule),
   ],
   controllers: [
     BusinessController,

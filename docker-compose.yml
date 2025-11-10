@@ -44,8 +44,8 @@ services:
       
       # Estas las debes completar con tus valores reales
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
-      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID}
+      VAPI_API_KEY: ${VAPI_API_KEY}
+      VAPI_PUBLIC_KEY: ${VAPI_PUBLIC_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: http://localhost:3001/auth/google/callback
@@ -107,29 +107,29 @@ services:
   #         path: ./app/package.json
 
   # N8N - Automatización
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: receptionistai-n8n
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=admin123
-      - N8N_HOST=n8n
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - WEBHOOK_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev/
-      - N8N_EDITOR_BASE_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev
-      # Variables para conectar con el backend
-      - BACKEND_URL=http://backend:3001
-    ports:
-      - "5678:5678"
-    volumes:
-      - n8n_data:/home/node/.n8n
-    networks:
-      - receptionistai-network
-    depends_on:
-      - backend
-    restart: unless-stopped
+  # n8n:
+  #   image: n8nio/n8n:latest
+  #   container_name: receptionistai-n8n
+  #   environment:
+  #     - N8N_BASIC_AUTH_ACTIVE=true
+  #     - N8N_BASIC_AUTH_USER=admin
+  #     - N8N_BASIC_AUTH_PASSWORD=admin123
+  #     - N8N_HOST=n8n
+  #     - N8N_PORT=5678
+  #     - N8N_PROTOCOL=http
+  #     - WEBHOOK_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev/
+  #     - N8N_EDITOR_BASE_URL=https://ontogenetic-janene-accommodational.ngrok-free.dev
+  #     # Variables para conectar con el backend
+  #     - BACKEND_URL=http://backend:3001
+  #   ports:
+  #     - "5678:5678"
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n
+  #   networks:
+  #     - receptionistai-network
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
     
   # Ngrok - Túnel HTTPS para backend
   ngrok-backend:
@@ -141,18 +141,18 @@ services:
     networks:
       - receptionistai-network
 
-  # Ngrok - Túnel HTTPS para VAPI
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: receptionistai-ngrok
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http n8n:5678 --log=stdout
-    networks:
-      - receptionistai-network
-    depends_on:
-      - n8n
-    restart: unless-stopped
+  # Ngrok - Túnel HTTPS para VAPI (comentado porque n8n está comentado)
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   container_name: receptionistai-ngrok
+  #   environment:
+  #     - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+  #   command: http n8n:5678 --log=stdout
+  #   networks:
+  #     - receptionistai-network
+  #   depends_on:
+  #     - n8n
+  #   restart: unless-stopped
 
 networks:
   receptionistai-network:
@@ -160,4 +160,4 @@ networks:
 
 volumes:
   postgres_data:
-  n8n_data:
+  # n8n_data:

@@ -1,27 +1,72 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('utils')
 @Controller('utils')
 export class UtilsController {
+  // Helper para convertir año a texto en español (soluciona pronunciación TTS)
+  private convertYearToSpanish(year: number): string {
+    if (year === 2025) return 'dos mil veinticinco';
+    if (year === 2026) return 'dos mil veintiséis';
+    if (year === 2027) return 'dos mil veintisiete';
+    if (year === 2028) return 'dos mil veintiocho';
+    if (year === 2029) return 'dos mil veintinueve';
+    if (year === 2030) return 'dos mil treinta';
+    // Fallback para otros años
+    return year.toString();
+  }
+
   @Get('now')
-  @ApiOperation({ summary: 'Obtener fecha y hora actual del servidor' })
+  @ApiOperation({ summary: 'Obtener fecha y hora actual del servidor (GET)' })
   getNow() {
     const now = new Date();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const two = (n: number) => n.toString().padStart(2, '0');
+    
+    const currentYear = now.getFullYear();
+    const yearInSpanish = this.convertYearToSpanish(currentYear);
+    
+    // Generar fecha sin el año
+    const dateTextWithoutYear = new Intl.DateTimeFormat('es-AR', { 
+      month: 'long', 
+      day: 'numeric', 
+      weekday: 'long' 
+    }).format(now);
+    
+    // Reconstruir con el año escrito en español
+    const fullDateTextWritten = `${dateTextWithoutYear} de ${yearInSpanish}`;
+    
     return {
       nowIso: now.toISOString(),
       date: `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`,
       time: `${two(now.getHours())}:${two(now.getMinutes())}`,
+      full_date_text: fullDateTextWritten,
       timezone: tz,
+      // 🚨 CRÍTICO: Mensaje con año escrito en español para TTS correcto
+      message: `La fecha de hoy es ${fullDateTextWritten}. ¿En qué más puedo ayudarte?`
     };
   }
 
+  @Post('now')
+  @ApiOperation({ summary: 'Obtener fecha y hora actual del servidor (POST - para Vapi)' })
+  getNowPost() {
+    return this.getNow();
+  }
+
   @Get('resolve-date')
-  @ApiOperation({ summary: 'Normaliza una fecha textual a YYYY-MM-DD y retorna día de la semana' })
-  resolveDate(query: { text?: string; tz?: string; lang?: string }) {
-    const { text = '', tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', lang = 'es' } = query || {} as any;
+  @ApiOperation({ summary: 'Normaliza una fecha textual a YYYY-MM-DD (GET)' })
+  resolveDateGet(@Query() query: { text?: string; tz?: string; lang?: string }) {
+    return this.resolveDateLogic(query);
+  }
+
+  @Post('resolve-date')
+  @ApiOperation({ summary: 'Normaliza una fecha textual a YYYY-MM-DD (POST)' })
+  resolveDatePost(@Body() body: { text?: string; tz?: string; lang?: string }) {
+    return this.resolveDateLogic(body);
+  }
+
+  private resolveDateLogic(params: { text?: string; tz?: string; lang?: string }) {
+    const { text = '', tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', lang = 'es' } = params || {} as any;
 
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -41,14 +86,24 @@ export class UtilsController {
       return new Intl.DateTimeFormat(l.startsWith('es') ? 'es-AR' : 'en-US', { weekday: 'long' }).format(d);
     }
 
-    function fromYMD(y: number, m: number, d: number) {
+    // Helper closure que tiene acceso a this
+    const fromYMD = (y: number, m: number, d: number) => {
       const date = new Date(Date.UTC(y, m - 1, d));
+      const dateStr = `${y}-${two(m)}-${two(d)}`;
+      const weekday = weekdayName(date, lang);
+      
+      // 🚨 Usar año escrito en español para TTS correcto
+      const yearInSpanish = this.convertYearToSpanish(y);
+      const monthName = new Intl.DateTimeFormat('es-AR', { month: 'long' }).format(date);
+      
       return {
-        date: `${y}-${two(m)}-${two(d)}`,
-        weekday: weekdayName(date, lang),
+        date: dateStr,
+        weekday: weekday,
         timezone: tz,
+        // 🚨 CRÍTICO: Mensaje con año escrito en español
+        message: `Esa fecha es ${weekday}, ${date.getDate()} de ${monthName} de ${yearInSpanish}.`
       };
-    }
+    };
 
     const t = text.trim().toLowerCase();
 
@@ -144,7 +199,18 @@ export class UtilsController {
       const d = parseInt(es[1], 10);
       const monthName = es[3].normalize('NFD').replace(/[^a-z]/g, '');
       const m = esMonths[monthName];
-      const y = es[5] ? parseInt(es[5], 10) : currentYear;
+      let y = es[5] ? parseInt(es[5], 10) : currentYear;
+      
+      // 🚨 YEAR ROLLOVER: Si el usuario dice "febrero" y estamos en noviembre 2025,
+      // asumir febrero 2026 (fecha futura)
+      if (!es[5] && m) {
+        const targetDate = new Date(y, m - 1, d);
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (targetDate < today) {
+          y = currentYear + 1; // Año siguiente
+        }
+      }
+      
       if (m) return fromYMD(y, m, d);
     }
 
@@ -153,8 +219,18 @@ export class UtilsController {
     if (en && !lang.toLowerCase().startsWith('es')) {
       const monthName = en[1];
       const d = parseInt(en[2], 10);
-      const y = en[3] ? parseInt(en[3], 10) : currentYear;
+      let y = en[3] ? parseInt(en[3], 10) : currentYear;
       const m = enMonths[monthName];
+      
+      // 🚨 YEAR ROLLOVER: Si la fecha ya pasó, asumir año siguiente
+      if (!en[3] && m) {
+        const targetDate = new Date(y, m - 1, d);
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (targetDate < today) {
+          y = currentYear + 1;
+        }
+      }
+      
       if (m) return fromYMD(y, m, d);
     }
 

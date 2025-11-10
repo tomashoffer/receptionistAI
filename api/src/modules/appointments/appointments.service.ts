@@ -136,5 +136,14 @@ export class AppointmentsService {
   async getAvailableSlots(date: string, durationMinutes?: number): Promise<string[]> {
     return this.googleService.getAvailableSlots(date, durationMinutes);
   }
+
+  async findByPhoneAndDate(phone: string, date: string): Promise<AppointmentEntity[]> {
+    return this.appointmentRepository
+      .createQueryBuilder('appointment')
+      .where('appointment.clientPhone = :phone', { phone })
+      .andWhere('appointment.appointmentDate = :date', { date })
+      .orderBy('appointment.appointmentTime', 'ASC')
+      .getMany();
+  }
 }
 

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { CreateAssistantDto } from './dto/create-assistant.dto';
-import { ALL_VOICES, SPANISH_VOICES, ENGLISH_VOICES, DEFAULT_SPANISH_VOICE_ID, DEFAULT_ENGLISH_VOICE_ID, Voice, getVoicesByLanguage, AVAILABLE_LANGUAGES, AVAILABLE_PROVIDERS } from './constants/elevenlabs-voices';
+import { ALL_VOICES, SPANISH_VOICES, ENGLISH_VOICES, DEFAULT_SPANISH_VOICE_ID, DEFAULT_ENGLISH_VOICE_ID, Voice, getVoicesByLanguage, AVAILABLE_LANGUAGES, AVAILABLE_PROVIDERS } from './constants/vapi-voices';
 import { AssistantService } from '../assistant/assistant.service';
 import { VoiceProvider, ModelProvider, AssistantStatus } from '../assistant/entities/assistant.entity';
 

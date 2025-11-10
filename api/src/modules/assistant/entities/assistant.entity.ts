@@ -84,7 +84,7 @@ export class Assistant {
   })
   model_provider: ModelProvider;
 
-  @Column({ type: 'varchar', length: 50, default: 'gpt-4o-mini' })
+  @Column({ type: 'varchar', length: 50, default: 'gpt-4o' })
   model_name: string;
 
   // Configuración de herramientas (Tools)
