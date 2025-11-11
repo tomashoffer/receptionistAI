@@ -13,7 +13,10 @@
 ### **Frontend (Próximos pasos)**
 - **Framework:** Next.js con TypeScript
 - **UI:** Tailwind CSS + shadcn/ui
-- **Voice AI:** ElevenLabs (para mejor calidad de voz)
+- **Voice AI:** Vapi (Asistente de voz completo)
+  - **LLM:** GPT-4o Mini (optimizado para costos)
+  - **TTS:** OpenAI TTS-1 (económico) o ElevenLabs (premium)
+  - **STT:** Deepgram Nova-2 (rápido y económico)
 - **Database:** Supabase (migración futura)
 - **Payment:** Stripe
 - **Analytics:** PostHog
@@ -126,7 +129,7 @@ El sistema automáticamente:
 1. **Configurar Google Calendar** siguiendo esta guía
 2. **Probar endpoints** con Swagger UI
 3. **Migrar frontend** a Next.js + Tailwind + shadcn/ui
-4. **Integrar ElevenLabs** para mejor calidad de voz
+4. **Configurar Vapi** con el stack económico (GPT-4o Mini + OpenAI TTS + Deepgram)
 5. **Migrar a Supabase** para base de datos
 6. **Agregar Stripe** para pagos
 7. **Implementar PostHog** para analytics

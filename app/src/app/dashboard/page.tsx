@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { apiService } from '@/services/api.service';
 import { vapiService } from '@/services/vapi.service';
@@ -14,9 +14,12 @@ import OverviewTab from '@/components/dashboard/OverviewTab';
 import BusinessesTab from '@/components/dashboard/BusinessesTab';
 import SystemConfigTab from '@/components/dashboard/SystemConfigTab';
 
+// 🚨 IMPORTANTE: Indicar a Next.js que esta página es completamente dinámica
+export const dynamic = 'force-dynamic';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { user, businesses, activeBusiness, isLoading, isLoggingOut, setActiveBusiness, setBusinesses, reset, updateBusiness } = useUserStore();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1137,5 +1140,21 @@ export default function DashboardPage() {
       
       </div>
     </div>
+  );
+}
+
+// Wrapper component con Suspense
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }
