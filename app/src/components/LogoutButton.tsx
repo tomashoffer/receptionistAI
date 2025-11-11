@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
 
-export default function LogoutButton() {
+export function LogoutButton() {
   const router = useRouter();
   const { clearUser, setIsLoggingOut } = useUserStore();
 
