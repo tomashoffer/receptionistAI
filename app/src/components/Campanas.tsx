@@ -17,10 +17,11 @@ import {
   ArrowUpDown,
   ChevronLeft,
   Save,
-  Info
+  Info,
+  Menu
 } from 'lucide-react';
-import { BusinessSelector } from './BusinessSelector';
 import { useUserStore } from '../stores/userStore';
+import { PageHeaderResponsive } from './layout/PageHeaderResponsive';
 import { Separator } from './ui/separator';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
@@ -312,24 +313,20 @@ export function Campanas() {
 
   return (
     <div className="bg-gray-50 bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl">Panel de campañas</h1>
-          <div className="flex items-center gap-2">
-            <BusinessSelector />
-            <Button 
-              className="bg-purple-600 hover:bg-purple-700 gap-2"
-              onClick={() => setIsCreating(true)}
-            >
-              <Plus className="w-4 h-4" />
-              Crear campaña
-            </Button>
-          </div>
-        </div>
-
+      <PageHeaderResponsive
+        title="Panel de campañas"
+        actions={
+          <Button 
+            className="bg-purple-600 hover:bg-purple-700 gap-2"
+            onClick={() => setIsCreating(true)}
+          >
+            <Plus className="w-4 h-4" />
+            Crear campaña
+          </Button>
+        }
+      >
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm text-gray-500">Total de campañas</CardTitle>
@@ -366,7 +363,7 @@ export function Campanas() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input placeholder="Buscar campaña..." className="pl-10" />
         </div>
-      </div>
+      </PageHeaderResponsive>
 
       {/* Table */}
       <div className="flex-1 bg-white m-8 rounded-lg border border-gray-200">

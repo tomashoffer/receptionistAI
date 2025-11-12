@@ -258,7 +258,7 @@ export function BusinessSelector() {
               <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
                 <Building2 className="w-4 h-4 text-purple-600" />
               </div>
-              <div className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0 text-center">
                 <p className="text-sm truncate">
                   {activeBusiness?.name || 'Seleccionar negocio'}
                 </p>
@@ -314,15 +314,15 @@ export function BusinessSelector() {
                       </span>
                     </div>
                     
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
+                    <div className="flex-1 min-w-0 text-center">
+                      <div className="flex items-center justify-center gap-2 mb-0.5">
                         <p className="text-sm truncate">{business.name}</p>
                         {isActive && (
                           <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1.5">
+                      <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-1.5">
                         <span>{businessTypeLabels[business.industry] || business.industry}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
@@ -331,7 +331,7 @@ export function BusinessSelector() {
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <div className="flex items-center justify-center gap-3 text-xs text-gray-400">
                         <span>{stats.conversations} conv.</span>
                         <span>{stats.appointments} citas</span>
                         <span className="text-purple-600">{stats.automation}% auto.</span>

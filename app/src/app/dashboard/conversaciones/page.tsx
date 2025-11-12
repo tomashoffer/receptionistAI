@@ -1,8 +1,8 @@
 'use client';
 
-import { Conversaciones } from '@/components/Conversaciones';
+import { ConversacionesWrapper } from '@/components/ConversacionesWrapper';
 
 export default function ConversacionesPage() {
-  return <Conversaciones />;
+  return <ConversacionesWrapper />;
 }
 

@@ -45,6 +45,7 @@ export class BusinessService {
       'consulting': Industry.CONSULTING,
       'real_estate': Industry.REAL_ESTATE,
       'automotive': Industry.AUTOMOTIVE,
+      'hotel': Industry.HOTEL,
       'other': Industry.OTHER,
     };
 

@@ -23,6 +23,7 @@ export enum Industry {
   CONSULTING = 'consulting',
   REAL_ESTATE = 'real_estate',
   AUTOMOTIVE = 'automotive',
+  HOTEL = 'hotel',
   OTHER = 'other'
 }
 

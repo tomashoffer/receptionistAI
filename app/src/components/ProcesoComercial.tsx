@@ -8,9 +8,9 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Card } from './ui/card';
-import { Filter, Search, Calendar, ChevronDown, MoreVertical, Phone, Mail, MessageSquare, MapPin, Users, DollarSign } from 'lucide-react';
-import { BusinessSelector } from './BusinessSelector';
+import { Filter, Search, Calendar, ChevronDown, MoreVertical, Phone, Mail, MessageSquare, MapPin, Users, DollarSign, Menu } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
+import { PageHeaderResponsive } from './layout/PageHeaderResponsive';
 
 interface Contact {
   id: string;
@@ -363,31 +363,21 @@ export function ProcesoComercial() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="bg-gray-50 bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl">Proceso comercial</h1>
-            <div className="flex items-center gap-2">
-              <BusinessSelector />
+        <PageHeaderResponsive
+          title="Proceso comercial"
+          actions={
+            <>
               <Button variant="outline" size="sm">
                 Exportar
               </Button>
               <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
                 + Nuevo contacto
               </Button>
-            </div>
-          </div>
-
-          {activeBusiness && (
-            <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <p className="text-sm text-purple-900">
-                📋 Viendo proceso comercial de: <span className="font-semibold">{activeBusiness.name}</span>
-              </p>
-            </div>
-          )}
-
+            </>
+          }
+        >
           {/* Filters */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mt-4">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -398,32 +388,34 @@ export function ProcesoComercial() {
               />
             </div>
             
-            <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="w-4 h-4" />
-              Filtros
-              <ChevronDown className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
+              <Button variant="outline" size="sm" className="gap-2 whitespace-nowrap">
+                <Filter className="w-4 h-4" />
+                Filtros
+                <ChevronDown className="w-4 h-4" />
+              </Button>
 
-            <Button variant="outline" size="sm" className="gap-2">
-              Asignado a
-              <ChevronDown className="w-4 h-4" />
-            </Button>
+              <Button variant="outline" size="sm" className="gap-2 whitespace-nowrap">
+                Asignado a
+                <ChevronDown className="w-4 h-4" />
+              </Button>
 
-            <Button variant="outline" size="sm" className="gap-2">
-              Fecha
-              <ChevronDown className="w-4 h-4" />
-            </Button>
+              <Button variant="outline" size="sm" className="gap-2 whitespace-nowrap">
+                Fecha
+                <ChevronDown className="w-4 h-4" />
+              </Button>
 
-            <Button variant="outline" size="sm" className="gap-2">
-              Origen
-              <ChevronDown className="w-4 h-4" />
-            </Button>
+              <Button variant="outline" size="sm" className="gap-2 whitespace-nowrap">
+                Origen
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+        </PageHeaderResponsive>
 
         {/* Kanban Board */}
-        <div className="flex-1">
-          <div className="flex gap-4 p-8 min-w-max">
+        <div className="flex-1 overflow-x-auto">
+          <div className="flex gap-4 p-4 md:p-8 min-w-max">
             {stages.map(stage => (
               <KanbanColumn
                 key={stage.id}

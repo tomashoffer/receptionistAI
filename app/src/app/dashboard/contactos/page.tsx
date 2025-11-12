@@ -1,8 +1,8 @@
 'use client';
 
-import { Contactos } from '@/components/Contactos';
+import { ContactosWrapper } from '@/components/ContactosWrapper';
 
 export default function ContactosPage() {
-  return <Contactos />;
+  return <ContactosWrapper />;
 }
 

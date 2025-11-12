@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
-import { Search, Filter, Phone, Mail, MoreVertical, X, Tag, CheckCircle, AlertCircle, Clock, MessageSquare, Video, Send, Smile, Paperclip, Edit, Trash2, Plus, User, MapPin, Calendar, FolderOpen, ArrowLeft, Info } from 'lucide-react';
-import { PageHeader } from './layout/PageHeader';
+import { Search, Filter, Phone, X, User, MessageSquare, Video, Send, Smile, Paperclip, Edit, Plus, FolderOpen, ArrowLeft, Info } from 'lucide-react';
+import { PageHeaderMobile } from './layout/PageHeaderMobile';
 import { useUserStore } from '../stores/userStore';
 
 interface Message {
@@ -187,7 +187,6 @@ function ConversationListItem({
   isActive: boolean; 
   onClick: () => void; 
 }) {
-  // Truncar el mensaje a 50 caracteres
   const truncateMessage = (message: string, maxLength: number = 50) => {
     if (message.length <= maxLength) return message;
     return message.substring(0, maxLength) + '...';
@@ -234,7 +233,7 @@ function ConversationListItem({
   );
 }
 
-export function Conversaciones() {
+export function ConversacionesMobile() {
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -244,7 +243,8 @@ export function Conversaciones() {
   const [newTag, setNewTag] = useState('');
   const [newNote, setNewNote] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'closed'>('all');
-  const { activeBusiness, user } = useUserStore();
+  const [mobileView, setMobileView] = useState<'list' | 'chat' | 'info'>('list');
+  const { user } = useUserStore();
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
@@ -310,7 +310,7 @@ export function Conversaciones() {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      createdBy: user?.first_name || 'Usuario' // En producción sería el usuario autenticado
+      createdBy: user?.first_name || 'Usuario'
     };
     
     const updatedConversation = {
@@ -327,6 +327,19 @@ export function Conversaciones() {
     setIsAddNoteDialogOpen(false);
   };
 
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setMobileView('chat');
+  };
+
+  const handleBackToList = () => {
+    setMobileView('list');
+  };
+
+  const handleShowInfo = () => {
+    setMobileView('info');
+  };
+
   const filteredConversations = conversations.filter(conv => {
     if (filterStatus === 'all') return true;
     return conv.status === filterStatus;
@@ -335,13 +348,13 @@ export function Conversaciones() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <PageHeader title="Conversaciones" />
+      <PageHeaderMobile title="Conversaciones" />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Conversations List */}
-        <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+      {/* Vista Lista */}
+      {mobileView === 'list' && (
+        <div className="flex-1 flex flex-col bg-white overflow-hidden">
           {/* Search */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input placeholder="Buscar conversaciones..." className="pl-10" />
@@ -349,7 +362,7 @@ export function Conversaciones() {
           </div>
 
           {/* Filters */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <Tabs value={filterStatus} onValueChange={(value) => setFilterStatus(value as 'all' | 'open' | 'closed')} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="all">Todas</TabsTrigger>
@@ -366,125 +379,129 @@ export function Conversaciones() {
           </div>
 
           {/* Conversations List */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             {filteredConversations.map((conversation) => (
               <ConversationListItem
                 key={conversation.id}
                 conversation={conversation}
                 isActive={selectedConversation?.id === conversation.id}
-                onClick={() => setSelectedConversation(conversation)}
+                onClick={() => handleSelectConversation(conversation)}
               />
             ))}
-          </ScrollArea>
+          </div>
         </div>
+      )}
 
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col">
-          {selectedConversation ? (
-            <>
-              {/* Chat Header */}
-              <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarFallback className="bg-purple-500 text-white">
-                      {selectedConversation.contactName.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="text-sm">{selectedConversation.contactName}</h3>
-                    <p className="text-xs text-gray-500">{selectedConversation.contactPhone}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">Vista</Button>
-                  <Button variant="ghost" size="sm">
-                    <Phone className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Video className="w-4 h-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setIsCloseDialogOpen(true)}
-                    disabled={selectedConversation.status === 'closed'}
-                  >
-                    Cerrar
-                  </Button>
-                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700">Pausar</Button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div 
-                className="flex-1 p-6 overflow-y-auto" 
-                style={{
-                  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h100v100H0z\' fill=\'%23e5ddd5\'/%3E%3C/svg%3E")',
-                  backgroundColor: '#e5ddd5'
-                }}
+      {/* Vista Chat */}
+      {mobileView === 'chat' && selectedConversation && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Chat Header */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="p-1 flex-shrink-0"
+                onClick={handleBackToList}
               >
-                <div className="space-y-3 max-w-4xl mx-auto">
-                  {mockMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-md px-4 py-2 rounded-lg ${
-                          message.sender === 'user'
-                            ? 'bg-green-100 text-gray-900'
-                            : 'bg-white text-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        <span className="text-xs text-gray-500 mt-1 block text-right">
-                          {message.timestamp}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Message Input */}
-              <div className="bg-white border-t border-gray-200 p-4">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
-                    <Smile className="w-5 h-5 text-gray-500" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Paperclip className="w-5 h-5 text-gray-500" />
-                  </Button>
-                  <Input
-                    placeholder="Escribe un mensaje o selecciona una plantilla con /"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="flex-1"
-                  />
-                  <Button 
-                    onClick={handleSendMessage}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg mb-2">Selecciona una conversación</h3>
-                <p className="text-sm text-gray-500">Elige un contacto de la lista para comenzar</p>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <Avatar className="w-10 h-10 flex-shrink-0">
+                <AvatarFallback className="bg-purple-500 text-white">
+                  {selectedConversation.contactName.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold truncate">{selectedConversation.contactName}</h3>
+                <p className="text-xs text-gray-500 truncate">{selectedConversation.contactPhone}</p>
               </div>
             </div>
-          )}
-        </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-1 flex-shrink-0"
+              onClick={handleShowInfo}
+            >
+              <Info className="w-5 h-5" />
+            </Button>
+          </div>
 
-        {/* Contact Info Sidebar */}
-        {selectedConversation && (
-          <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+          {/* Messages */}
+          <div 
+            className="flex-1 p-4 overflow-y-auto" 
+            style={{
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h100v100H0z\' fill=\'%23e5ddd5\'/%3E%3C/svg%3E")',
+              backgroundColor: '#e5ddd5'
+            }}
+          >
+            <div className="space-y-3">
+              {mockMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] px-4 py-2 rounded-lg ${
+                      message.sender === 'user'
+                        ? 'bg-green-100 text-gray-900'
+                        : 'bg-white text-gray-900'
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <span className="text-xs text-gray-500 mt-1 block text-right">
+                      {message.timestamp}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Input - Siempre visible */}
+          <div className="bg-white border-t border-gray-200 p-3 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="p-2">
+                <Smile className="w-5 h-5 text-gray-500" />
+              </Button>
+              <Button variant="ghost" size="sm" className="p-2">
+                <Paperclip className="w-5 h-5 text-gray-500" />
+              </Button>
+              <Input
+                placeholder="Escribe un mensaje..."
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleSendMessage}
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 p-2"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vista Info */}
+      {mobileView === 'info' && selectedConversation && (
+        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center gap-3 flex-shrink-0">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-1"
+              onClick={() => setMobileView('chat')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h3 className="text-lg font-semibold">Información del contacto</h3>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
             <div className="p-6 space-y-6">
               {/* Info/Notas Tabs */}
               <Tabs defaultValue="info">
@@ -497,7 +514,7 @@ export function Conversaciones() {
                   {/* Agente asignado */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm">Agente asignado</h4>
+                      <h4 className="text-sm font-semibold">Agente asignado</h4>
                       <Button variant="ghost" size="sm">
                         <Edit className="w-3 h-3" />
                       </Button>
@@ -513,7 +530,7 @@ export function Conversaciones() {
                   {/* Etiquetas */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm">Etiquetas</h4>
+                      <h4 className="text-sm font-semibold">Etiquetas</h4>
                       <Button 
                         variant="ghost" 
                         size="sm"
@@ -549,7 +566,7 @@ export function Conversaciones() {
                   {/* Contacto */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm">Contacto</h4>
+                      <h4 className="text-sm font-semibold">Contacto</h4>
                       <Button variant="ghost" size="sm">Editar</Button>
                     </div>
                     <div className="space-y-2 text-sm">
@@ -581,7 +598,7 @@ export function Conversaciones() {
                   {/* Archivos */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm">Archivos</h4>
+                      <h4 className="text-sm font-semibold">Archivos</h4>
                       <Button variant="ghost" size="sm">Subir</Button>
                     </div>
                     <div className="text-center py-4 text-gray-400">
@@ -621,10 +638,10 @@ export function Conversaciones() {
               </Tabs>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Dialog: Cerrar Conversación */}
+      {/* Dialogs (compartidos en todas las vistas) */}
       <Dialog open={isCloseDialogOpen} onOpenChange={setIsCloseDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -645,7 +662,6 @@ export function Conversaciones() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Agregar Etiqueta */}
       <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -680,7 +696,6 @@ export function Conversaciones() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Agregar Nota */}
       <Dialog open={isAddNoteDialogOpen} onOpenChange={setIsAddNoteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -717,3 +732,4 @@ export function Conversaciones() {
     </div>
   );
 }
+

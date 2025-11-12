@@ -4,9 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { MessageSquare, Phone, Send, PhoneCall, Mic, PhoneOff } from 'lucide-react';
-import { BusinessSelector } from './BusinessSelector';
+import { MessageSquare, Phone, Send, PhoneCall, Mic, PhoneOff, Menu } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
+import { PageHeader } from './layout/PageHeader';
 
 type TestMode = 'selection' | 'chatbot' | 'voice';
 
@@ -93,22 +93,14 @@ export function Pruebas() {
   if (mode === 'selection') {
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl mb-2">Pruebas del Asistente</h1>
-              <p className="text-sm text-gray-500">
-                Selecciona el modo de prueba para comenzar a interactuar con tu asistente
-              </p>
-            </div>
-            <BusinessSelector />
-          </div>
-        </div>
+        <PageHeader
+          title="Pruebas del Asistente"
+          subtitle="Selecciona el modo de prueba para comenzar a interactuar con tu asistente"
+        />
 
         {/* Selection Cards */}
-        <div className="p-8">
-          <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
             {/* Chatbot Card */}
             <Card 
               className="cursor-pointer hover:shadow-lg transition-all border-2 hover:border-purple-300"
@@ -155,30 +147,30 @@ export function Pruebas() {
   if (mode === 'chatbot') {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setMode('selection')}
-                className="gap-2"
-              >
-                ← Volver
-              </Button>
-              <div>
-                <h1 className="text-2xl mb-1">Prueba de Chatbot</h1>
-                <p className="text-sm text-gray-500">
-                  Conversando con {activeBusiness?.name || 'tu asistente'}
-                </p>
-              </div>
+        <PageHeader
+          title={
+            <div>
+              <h1 className="text-lg md:text-2xl mb-1">Prueba de Chatbot</h1>
+              <p className="text-xs md:text-sm text-gray-500">
+                Conversando con {activeBusiness?.name || 'tu asistente'}
+              </p>
             </div>
-            <BusinessSelector />
-          </div>
-        </div>
+          }
+          actions={
+            <Button 
+              variant="outline" 
+              onClick={() => setMode('selection')}
+              className="gap-2"
+              size="sm"
+            >
+              ← Volver
+            </Button>
+          }
+          className="flex-shrink-0"
+        />
 
         {/* Chat Area */}
-        <div className="flex-1 flex items-center justify-center p-8 overflow-hidden">
+        <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">
           <div 
             className="w-full max-w-4xl h-full rounded-lg shadow-lg bg-white flex flex-col overflow-hidden"
             style={{
@@ -235,35 +227,34 @@ export function Pruebas() {
   if (mode === 'voice') {
     return (
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setMode('selection');
-                  setIsCallActive(false);
-                  setCallDuration(0);
-                }}
-                className="gap-2"
-              >
-                ← Volver
-              </Button>
-              <div>
-                <h1 className="text-2xl mb-1">Prueba de Voice Receptionist</h1>
-                <p className="text-sm text-gray-500">
-                  Realiza una llamada de prueba con {activeBusiness?.name || 'tu asistente'}
-                </p>
-              </div>
+        <PageHeader
+          title={
+            <div>
+              <h1 className="text-lg md:text-2xl mb-1">Prueba de Voice Receptionist</h1>
+              <p className="text-xs md:text-sm text-gray-500">
+                Realiza una llamada de prueba con {activeBusiness?.name || 'tu asistente'}
+              </p>
             </div>
-            <BusinessSelector />
-          </div>
-        </div>
+          }
+          actions={
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setMode('selection');
+                setIsCallActive(false);
+                setCallDuration(0);
+              }}
+              className="gap-2"
+              size="sm"
+            >
+              ← Volver
+            </Button>
+          }
+        />
 
         {/* Voice Interface */}
-        <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 120px)' }}>
-          <Card className="w-full max-w-md">
+        <div className="flex items-center justify-center p-4 md:p-8" style={{ minHeight: 'calc(100vh - 120px)' }}>
+          <Card className="w-full max-w-md mx-4 md:mx-0">
             <div className="p-8 text-center">
               {!isCallActive ? (
                 <>
@@ -280,7 +271,7 @@ export function Pruebas() {
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                     <p className="text-sm text-blue-900">
                       <strong>Número de prueba:</strong><br />
-                      {activeBusiness?.phone || '+54 9 11 1234-5678'}
+                      +54 9 11 1234-5678
                     </p>
                   </div>
 

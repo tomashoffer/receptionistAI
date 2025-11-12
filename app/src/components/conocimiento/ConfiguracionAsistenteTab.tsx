@@ -31,11 +31,11 @@ export function ConfiguracionAsistenteTab() {
   const appointmentType = useMemo(() => {
     const industry = activeBusiness?.industry;
     if (!industry) return 'appointment' as const;
-    return businessAppointmentType[industry] || ('appointment' as const);
+    return businessAppointmentType[industry as keyof typeof businessAppointmentType] || ('appointment' as const);
   }, [activeBusiness]);
 
   const labels = useMemo(() => {
-    return appointmentTypeLabels[appointmentType];
+    return appointmentTypeLabels[appointmentType as keyof typeof appointmentTypeLabels];
   }, [appointmentType]);
 
   // Dynamic label for business info
@@ -300,14 +300,14 @@ Página web: ${fields.web.value}`;
   };
 
   return (
-    <div className="grid grid-cols-2 gap-8 p-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8 p-4 md:p-6 lg:p-8">
       {/* Left Column - Prompt Preview */}
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4 order-2 lg:order-1">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg">Vista previa del prompt</h2>
-          <span className="text-sm text-gray-500">{generatePrompt().length}/1500 caracteres</span>
+          <h2 className="text-base md:text-lg">Vista previa del prompt</h2>
+          <span className="text-xs md:text-sm text-gray-500">{generatePrompt().length}/1500 caracteres</span>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-6 font-mono text-xs leading-relaxed">
+        <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6 font-mono text-[10px] md:text-xs leading-relaxed overflow-x-auto">
           <div className="whitespace-pre-wrap">
             {renderPromptWithHighlights()}
           </div>
@@ -315,7 +315,7 @@ Página web: ${fields.web.value}`;
       </div>
 
       {/* Right Column - Configuration Fields */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6 order-1 lg:order-2">
         <div>
           <h2 className="text-lg mb-1">Información principal</h2>
           <Badge variant="outline" className="text-xs">Revisado</Badge>

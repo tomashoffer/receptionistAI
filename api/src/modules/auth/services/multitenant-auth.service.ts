@@ -285,6 +285,7 @@ export class MultitenantAuthService {
       'gym': Industry.FITNESS_CENTER,
       'office': Industry.CONSULTING,
       'retail': Industry.AUTOMOTIVE,
+      'hotel': Industry.HOTEL,
       'other': Industry.CONSULTING,
     };
 

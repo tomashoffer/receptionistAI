@@ -14,6 +14,7 @@ import {
 import { Separator } from './ui/separator';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
+import { PageHeaderResponsive } from './layout/PageHeaderResponsive';
 
 interface Contact {
   id: string;
@@ -80,19 +81,38 @@ export function CrearCampana({ onBack, onSave }: CrearCampanaProps) {
   };
 
   return (
-    <div className="bg-gray-50 bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <h1 className="text-2xl mb-2">Crear nueva campaña</h1>
-        <p className="text-sm text-gray-500">
-          Configura una nueva campaña de mensajes. Completa los detalles abajo para comenzar.
-        </p>
-      </div>
+    <div className="bg-gray-50 min-h-screen">
+      <PageHeaderResponsive
+        title="Crear nueva campaña"
+        subtitle="Configura una nueva campaña de mensajes. Completa los detalles abajo para comenzar."
+        showBusinessSelector={false}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={onBack} className="gap-2">
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Volver</span>
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">Borrador</span>
+            </Button>
+            <Button 
+              size="sm" 
+              className="bg-purple-600 hover:bg-purple-700 gap-2"
+              onClick={handleCreateCampaign}
+              disabled={!campaignData.name || selectedContacts.length === 0}
+            >
+              <span className="hidden sm:inline">Crear campaña</span>
+              <span className="sm:hidden">Crear</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Content */}
       <div className="flex-1">
-        <div className="max-w-7xl mx-auto p-8">
-          <div className="grid grid-cols-2 gap-8">
+        <div className="max-w-7xl mx-auto p-4 md:p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             {/* Left Column */}
             <div className="space-y-6">
               {/* Campaign Name */}
@@ -108,7 +128,7 @@ export function CrearCampana({ onBack, onSave }: CrearCampanaProps) {
               </div>
 
               {/* Date and Estimated End */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="campaign-date">Fecha de la campaña</Label>
                   <Input
@@ -220,7 +240,7 @@ export function CrearCampana({ onBack, onSave }: CrearCampanaProps) {
                   </span>
                 </div>
                 
-                <ScrollArea className="h-[500px]">
+                <ScrollArea className="h-[300px] md:h-[500px]">
                   {mockContacts.map((contact) => (
                     <div 
                       key={contact.id}
@@ -246,27 +266,6 @@ export function CrearCampana({ onBack, onSave }: CrearCampanaProps) {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="bg-white border-t border-gray-200 px-8 py-4 flex items-center justify-between">
-        <Button variant="outline" onClick={onBack} className="gap-2">
-          <ChevronLeft className="w-4 h-4" />
-          Volver
-        </Button>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
-            <Save className="w-4 h-4" />
-            Guardar borrador
-          </Button>
-          <Button 
-            className="bg-purple-600 hover:bg-purple-700"
-            onClick={handleCreateCampaign}
-            disabled={!campaignData.name || selectedContacts.length === 0}
-          >
-            Crear campaña
-          </Button>
         </div>
       </div>
     </div>

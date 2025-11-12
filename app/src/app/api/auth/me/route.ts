@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     // Make a call to the backend to get the full user data
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     
+    console.log('🌐 Llamando al backend:', `${backendUrl}/auth/me`);
+    
     // Obtener todas las cookies de la request
     const cookieHeader = request.headers.get('cookie') || '';
     
@@ -64,25 +66,109 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    console.log('📡 Respuesta del backend - Status:', backendResponse.status);
+    console.log('📡 Respuesta del backend - Headers:', Object.fromEntries(backendResponse.headers.entries()));
+
     if (!backendResponse.ok) {
+      const errorText = await backendResponse.text();
+      console.error('❌ Backend error response:', errorText);
+      
       if (backendResponse.status === 401) {
         return new NextResponse('Token inválido o expirado.', { status: 401 });
       }
-      throw new Error(`Backend error: ${backendResponse.status}`);
+      throw new Error(`Backend error: ${backendResponse.status} - ${errorText}`);
     }
 
-    const userData = await backendResponse.json();
+    const responseText = await backendResponse.text();
+    console.log('📄 Respuesta del backend (texto):', responseText);
+    
+    let userData;
+    try {
+      userData = responseText ? JSON.parse(responseText) : null;
+    } catch (parseError) {
+      console.error('❌ Error parseando JSON del backend:', parseError);
+      console.error('Texto recibido:', responseText);
+      
+      // FALLBACK: Si el backend falla, usar datos del JWT
+      console.warn('⚠️ Usando datos del JWT como fallback');
+      const fallbackUser = {
+        id: payload.sub as string,
+        email: payload.email as string || 'usuario@email.com',
+        first_name: payload.first_name as string || 'Usuario',
+        last_name: payload.last_name as string || '',
+        role: payload.role as string,
+        phone: payload.phone as string || '',
+        business_id: payload.business_id as string || null,
+        business_name: payload.business_name as string || null,
+      };
+      return NextResponse.json(fallbackUser);
+    }
+    
+    console.log('📦 Datos recibidos del backend:', JSON.stringify(userData, null, 2));
+    
+    // El backend puede devolver diferentes estructuras:
+    // 1. { user: { id, email, ... } }  <- Estructura anidada
+    // 2. { id, email, ... }            <- Estructura directa
+    // 3. null o undefined              <- Error
+    
+    let userInfo;
+    
+    if (!userData) {
+      console.error('❌ userData es null o undefined - Usando datos del JWT como fallback');
+      
+      // FALLBACK: Si el backend devuelve null, usar datos del JWT
+      const fallbackUser = {
+        id: payload.sub as string,
+        email: payload.email as string || 'usuario@email.com',
+        first_name: payload.first_name as string || 'Usuario',
+        last_name: payload.last_name as string || '',
+        role: payload.role as string,
+        phone: payload.phone as string || '',
+        business_id: payload.business_id as string || null,
+        business_name: payload.business_name as string || null,
+      };
+      return NextResponse.json(fallbackUser);
+    }
+    
+    // Si tiene la propiedad 'user', usar esa (estructura anidada)
+    if (userData.user) {
+      userInfo = userData.user;
+    } 
+    // Si tiene 'id' directamente, usar userData completo (estructura directa)
+    else if (userData.id) {
+      userInfo = userData;
+    }
+    // Si no tiene ni user ni id, usar JWT como fallback
+    else {
+      console.error('❌ userData no tiene estructura válida - Usando datos del JWT como fallback');
+      console.error('userData recibido:', userData);
+      
+      const fallbackUser = {
+        id: payload.sub as string,
+        email: payload.email as string || 'usuario@email.com',
+        first_name: payload.first_name as string || 'Usuario',
+        last_name: payload.last_name as string || '',
+        role: payload.role as string,
+        phone: payload.phone as string || '',
+        business_id: payload.business_id as string || null,
+        business_name: payload.business_name as string || null,
+      };
+      return NextResponse.json(fallbackUser);
+    }
+    
     // Asegurar que solo devolvemos datos serializables
     const cleanUserData = {
-      id: userData.user?.id,
-      email: userData.user?.email,
-      first_name: userData.user?.first_name,
-      last_name: userData.user?.last_name,
-      role: userData.user?.role,
-      phone: userData.user?.phone,
-      business_id: userData.user?.business_id,
-      business_name: userData.user?.business_name,
+      id: userInfo.id,
+      email: userInfo.email,
+      first_name: userInfo.first_name,
+      last_name: userInfo.last_name,
+      role: userInfo.role,
+      phone: userInfo.phone,
+      business_id: userInfo.business_id,
+      business_name: userInfo.business_name,
     };
+    
+    console.log('✅ Devolviendo datos limpios:', cleanUserData);
     return NextResponse.json(cleanUserData);
 
   } catch (error) {

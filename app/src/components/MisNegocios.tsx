@@ -23,11 +23,13 @@ import {
   Trash2,
   Settings,
   MessageSquare,
+  Menu,
   TrendingUp,
   CheckCircle2,
   Pause,
   Play
 } from 'lucide-react';
+import { PageHeaderResponsive } from './layout/PageHeaderResponsive';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './ui/dropdown-menu';
 import { 
   AlertDialog,
@@ -40,6 +42,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { useUserStore, type Business } from '../stores/userStore';
+import { useLayout } from '../contexts/LayoutContext';
 
 const industries = [
   'Salud',
@@ -455,18 +458,12 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
 
   return (
     <div className="bg-gray-50 bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl mb-2">Mis Negocios</h1>
-            <p className="text-sm text-gray-500">
-              Gestiona todos tus negocios y sus Recepcionistas AI desde un solo lugar
-            </p>
-          </div>
-          <CreateBusinessDialog />
-        </div>
-
+      <PageHeaderResponsive
+        title="Mis Negocios"
+        subtitle="Gestiona todos tus negocios y sus Recepcionistas AI desde un solo lugar"
+        showBusinessSelector={false}
+        actions={<CreateBusinessDialog />}
+      >
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
           <Card>
@@ -523,7 +520,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
             </CardContent>
           </Card>
         </div>
-      </div>
+      </PageHeaderResponsive>
 
       {/* Business Grid */}
       <div className="flex-1 p-8">

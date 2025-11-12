@@ -81,9 +81,9 @@ export function InformacionEstablecimientoTab({ businessType }: Props) {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl">
+    <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
       {/* Importante Section */}
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 md:p-6">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">
             <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
@@ -228,11 +228,11 @@ export function InformacionEstablecimientoTab({ businessType }: Props) {
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-6">
-        <Button variant="outline">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 md:pt-6">
+        <Button variant="outline" className="w-full sm:w-auto">
           Anterior
         </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700">
+        <Button className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
           Siguiente
         </Button>
       </div>

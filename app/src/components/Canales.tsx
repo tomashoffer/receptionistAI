@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
-import { BusinessSelector } from './BusinessSelector';
+import { PageHeader } from './layout/PageHeader';
 import { 
   Calendar,
   MessageCircle,
@@ -307,16 +307,10 @@ export function Canales() {
 
   return (
     <div className="bg-gray-50 bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl mb-1">Canales disponibles</h1>
-          <p className="text-sm text-gray-600">
-            Aquí te presentamos todos los canales disponibles, los cuales podrás conectar fácilmente apretando el botón de conectar.
-          </p>
-        </div>
-        <BusinessSelector />
-      </div>
+      <PageHeader
+        title="Canales disponibles"
+        subtitle="Aquí te presentamos todos los canales disponibles, los cuales podrás conectar fácilmente apretando el botón de conectar."
+      />
 
       {/* Content */}
       <div className="flex-1 p-8">

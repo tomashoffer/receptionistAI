@@ -17,11 +17,12 @@ import {
   CreditCard,
   Bot,
   Layers,
+  X,
 } from 'lucide-react';
-import { BusinessSelector } from '../BusinessSelector';
 import { useUserStore } from '@/stores/userStore';
 import { LogoutButton } from '../LogoutButton';
 import { Badge } from '../ui/badge';
+import { BusinessSelector } from '../BusinessSelector';
 
 interface NavItem {
   icon: any;
@@ -36,7 +37,12 @@ interface NavSection {
   items: NavItem[];
 }
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function AppSidebar({ isOpen = false, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUserStore();
@@ -83,22 +89,80 @@ export function AppSidebar() {
   const handleNavClick = (item: NavItem) => {
     if (item.locked) return;
     router.push(item.path);
+    // Cerrar el menú mobile después de navegar
+    if (onClose) {
+      onClose();
+    }
   };
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-            <Bot className="h-5 w-5 text-white" />
+    <>
+      <style jsx>{`
+        .sidebar {
+          position: fixed;
+          inset-block-start: 0;
+          inset-block-end: 0;
+          inset-inline-start: 0;
+          z-index: 50;
+          transform: translateX(${isOpen ? '0' : '-100%'});
+          transition: transform 300ms ease-in-out;
+        }
+        
+        .business-selector-mobile {
+          display: block;
+        }
+        
+        .business-selector-wrapper :global(button) {
+          min-width: 100%;
+          width: 100%;
+        }
+        
+        @media (width >= 768px) {
+          .sidebar {
+            position: static;
+            transform: translateX(0) !important;
+          }
+          
+          .close-button {
+            display: none;
+          }
+          
+          .business-selector-mobile {
+            display: none;
+          }
+        }
+      `}</style>
+      
+      <aside className="sidebar w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+        {/* Header */}
+        <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+                <Bot className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ReceptionistAI</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Business Dashboard</p>
+              </div>
+            </div>
+            {/* Botón X - solo visible en mobile */}
+            <button
+              onClick={onClose}
+              className="close-button p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Cerrar menú"
+            >
+              <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            </button>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ReceptionistAI</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Business Dashboard</p>
+          
+          {/* BusinessSelector - solo visible en mobile */}
+          <div className="business-selector-mobile mt-3">
+            <div className="business-selector-wrapper">
+              <BusinessSelector />
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Navigation Sections */}
       <div className="flex-1 py-4 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -163,6 +227,7 @@ export function AppSidebar() {
           <LogoutButton />
         </div>
       </div>
-    </div>
+      </aside>
+    </>
   );
 }

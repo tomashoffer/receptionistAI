@@ -13,10 +13,11 @@ import {
   UserPlus,
   MoreVertical,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Menu
 } from 'lucide-react';
-import { BusinessSelector } from './BusinessSelector';
 import { useUserStore } from '../stores/userStore';
+import { PageHeader } from './layout/PageHeader';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,20 +253,18 @@ export function Contactos() {
 
   return (
     <div className="bg-gray-50 bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4">
-        <div className="flex items-center justify-between mb-4">
+      <PageHeader
+        title={
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl">Contactos</h1>
+            <span className="text-xl md:text-2xl">Contactos</span>
             <Badge variant="secondary" className="bg-purple-100 text-purple-700">
               Tutorial
             </Badge>
           </div>
-          <BusinessSelector />
-        </div>
-
+        }
+      >
         {/* Action Buttons */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-2">
               <Upload className="w-4 h-4" />
@@ -301,7 +300,7 @@ export function Contactos() {
             </Button>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Table */}
       <div className="flex-1">
