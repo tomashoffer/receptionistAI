@@ -443,12 +443,12 @@ export function ConversacionesMobile() {
                   <div
                     className={`max-w-[80%] px-4 py-2 rounded-lg ${
                       message.sender === 'user'
-                        ? 'bg-green-100 text-gray-900'
+                        ? 'bg-green-100 dark:bg-emerald-500/20 dark:text-black'
                         : 'bg-white text-gray-900'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    <span className="text-xs text-gray-500 mt-1 block text-right">
+                    <span className="text-xs mt-1 block text-right">
                       {message.timestamp}
                     </span>
                   </div>

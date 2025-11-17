@@ -62,6 +62,40 @@ export function Conocimiento() {
     { id: 'extra', icon: FileText, title: 'Información Extra', progress: 100 },
     { id: 'integracion', icon: Plug, title: 'Integración y Fotos', progress: 100 }
   ];
+  const tabOrder = tabs.map((tab) => tab.id);
+
+  const buildNavigateHandler = (tabId: string, direction: 'previous' | 'next') => {
+    const currentIndex = tabOrder.indexOf(tabId);
+    if (currentIndex === -1) return undefined;
+    const targetIndex = direction === 'previous' ? currentIndex - 1 : currentIndex + 1;
+    const targetId = tabOrder[targetIndex];
+    if (!targetId) return undefined;
+    return () => setActiveTab(targetId);
+  };
+
+  const previousHandler = buildNavigateHandler(activeTab, 'previous');
+  const nextHandler = buildNavigateHandler(activeTab, 'next');
+  const navButtonStyle = {
+    flex: '1 0 180px',
+    maxWidth: 240,
+  };
+
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'configuracion':
+        return <ConfiguracionAsistenteTab />;
+      case 'precios':
+        return <PrecioDisponibilidadTab />;
+      case 'establecimiento':
+        return <InformacionEstablecimientoTab businessType={businessType} />;
+      case 'extra':
+        return <InformacionExtraTab businessType={businessType} />;
+      case 'integracion':
+        return <IntegracionFotosTab businessType={businessType} />;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -100,19 +134,34 @@ export function Conocimiento() {
       </PageHeader>
 
       {/* Content */}
-      <div className="min-h-[calc(100vh-300px)]">
-        {activeTab === 'configuracion' && <ConfiguracionAsistenteTab />}
-        {activeTab === 'precios' && <PrecioDisponibilidadTab />}
-        {activeTab === 'establecimiento' && <InformacionEstablecimientoTab businessType={businessType} />}
-        {activeTab === 'extra' && <InformacionExtraTab businessType={businessType} />}
-        {activeTab === 'integracion' && <IntegracionFotosTab businessType={businessType} />}
-      </div>
+      <div className="min-h-[calc(100vh-300px)]">{renderActiveTab()}</div>
 
-      {/* Footer */}
-      <div className="bg-white border-t border-gray-200 px-4 md:px-6 lg:px-8 py-3 md:py-4 flex justify-center md:justify-end mt-6 md:mt-8">
-        <Button className="bg-purple-600 hover:bg-purple-700 w-full md:w-auto">
-          Actualizar
-        </Button>
+      <div className="px-4 md:px-6 lg:px-8 mt-6 md:mt-8 mb-6">
+        <div className="flex flex-wrap justify-center gap-3 max-w-3xl mx-auto">
+          <Button
+            variant="outline"
+            className="px-6 py-3"
+            onClick={() => previousHandler?.()}
+            disabled={!previousHandler}
+            style={navButtonStyle}
+          >
+            Anterior
+          </Button>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 px-6 py-3"
+            onClick={() => nextHandler?.()}
+            disabled={!nextHandler}
+            style={navButtonStyle}
+          >
+            Siguiente
+          </Button>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700 px-6 py-3"
+            style={navButtonStyle}
+          >
+            Actualizar
+          </Button>
+        </div>
       </div>
     </div>
   );

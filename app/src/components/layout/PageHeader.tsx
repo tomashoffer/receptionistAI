@@ -70,7 +70,7 @@ export function PageHeader({
           </div>
           
           {/* Lado derecho: BusinessSelector + Actions */}
-          <div className="flex items-center gap-2 flex-wrap md:flex-nowrap">
+          <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
             {showBusinessSelector && (
               <div className="header-business-selector">
                 <BusinessSelector />

@@ -227,15 +227,6 @@ export function InformacionEstablecimientoTab({ businessType }: Props) {
         )}
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 md:pt-6">
-        <Button variant="outline" className="w-full sm:w-auto">
-          Anterior
-        </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
-          Siguiente
-        </Button>
-      </div>
     </div>
   );
 }

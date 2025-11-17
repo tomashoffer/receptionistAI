@@ -23,6 +23,7 @@ import { useUserStore } from '@/stores/userStore';
 import { LogoutButton } from '../LogoutButton';
 import { Badge } from '../ui/badge';
 import { BusinessSelector } from '../BusinessSelector';
+import DarkModeToggle from '../DarkModeToggle';
 
 interface NavItem {
   icon: any;
@@ -206,6 +207,14 @@ export function AppSidebar({ isOpen = false, onClose }: AppSidebarProps) {
             </div>
           </div>
         ))}
+        <div className="px-3 mb-6">
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-3 mb-2">
+            Preferencias
+          </h3>
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2.5 flex justify-center">
+            <DarkModeToggle />
+          </div>
+        </div>
       </div>
 
       {/* Footer */}

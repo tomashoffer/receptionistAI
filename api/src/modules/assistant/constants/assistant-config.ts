@@ -107,6 +107,7 @@ export const DEFAULT_TOOLS: ToolConfig[] = [
       },
       required: ['appointment_id']
     },
+    webhook_url: 'https://ontogenetic-janene-accommodational.ngrok-free.dev/webhook-test/elevenlabs-cancel',
     enabled: false, // Deshabilitado por defecto
     default_required_fields: ['appointment_id']
   }

@@ -6,7 +6,7 @@ import { apiService } from '@/services/api.service';
 import { useRouter } from 'next/navigation';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import StateSyncer from '@/components/StateSyncer';
-import LogoutButton from '@/components/LogoutButton';
+import { LogoutButton } from '@/components/LogoutButton';
 import DarkModeToggle from '@/components/DarkModeToggle';
 
 interface UserFormData {

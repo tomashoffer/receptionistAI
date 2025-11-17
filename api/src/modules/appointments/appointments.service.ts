@@ -145,5 +145,35 @@ export class AppointmentsService {
       .orderBy('appointment.appointmentTime', 'ASC')
       .getMany();
   }
+
+  async findByDetails(options: {
+    clientPhone: string;
+    appointmentDate: string;
+    appointmentTime?: string;
+    serviceType?: string;
+  }): Promise<AppointmentEntity | null> {
+    const query = this.appointmentRepository
+      .createQueryBuilder('appointment')
+      .where('appointment.clientPhone = :clientPhone', {
+        clientPhone: options.clientPhone,
+      })
+      .andWhere('appointment.appointmentDate = :appointmentDate', {
+        appointmentDate: options.appointmentDate,
+      });
+
+    if (options.appointmentTime) {
+      query.andWhere('appointment.appointmentTime = :appointmentTime', {
+        appointmentTime: options.appointmentTime,
+      });
+    }
+
+    if (options.serviceType) {
+      query.andWhere('appointment.serviceType = :serviceType', {
+        serviceType: options.serviceType,
+      });
+    }
+
+    return query.getOne();
+  }
 }
 

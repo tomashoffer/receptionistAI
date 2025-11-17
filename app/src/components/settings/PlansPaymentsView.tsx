@@ -94,28 +94,33 @@ const invoices = [
 
 export function PlansPaymentsView() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       <div>
         <h1 className="text-3xl">Planes y Pagos</h1>
-        <p className="text-slate-600 mt-1">
+        <p className="text-slate-600 dark:text-slate-300 mt-1">
           Gestión de suscripciones y facturación
         </p>
       </div>
 
       {/* Current Plan Overview */}
-      <Card className="border-indigo-200 bg-indigo-50">
+      <Card className="border-indigo-200 bg-indigo-50 dark:border-indigo-500/40 dark:bg-indigo-900/30">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-5 w-5 text-indigo-600" />
-                <h3 className="text-lg text-indigo-900">Plan Actual: Professional</h3>
+                <Zap className="h-5 w-5 text-indigo-500 dark:text-indigo-300" />
+                <h3 className="text-lg text-indigo-900 dark:text-indigo-100">
+                  Plan Actual: Professional
+                </h3>
               </div>
-              <p className="text-sm text-indigo-700">
+              <p className="text-sm text-indigo-700 dark:text-indigo-200">
                 Próxima renovación: 1 de Diciembre, 2025 • $299.00
               </p>
             </div>
-            <Button variant="outline" className="bg-white">
+            <Button
+              variant="outline"
+              className="bg-white dark:bg-transparent dark:text-indigo-100 dark:border-indigo-400 dark:hover:bg-indigo-500/20"
+            >
               Gestionar Suscripción
             </Button>
           </div>
@@ -151,9 +156,11 @@ export function PlansPaymentsView() {
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl">{plan.price}</span>
-                  <span className="text-slate-600">{plan.period}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{plan.period}</span>
                 </div>
-                <CardDescription className="mt-2">{plan.description}</CardDescription>
+                <CardDescription className="mt-2 text-slate-600 dark:text-slate-300">
+                  {plan.description}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ul className="space-y-2">
@@ -165,7 +172,9 @@ export function PlansPaymentsView() {
                   ))}
                 </ul>
                 <Button
-                  className="w-full"
+                  className={`w-full ${
+                    plan.current ? 'dark:border-slate-600 dark:text-slate-100' : ''
+                  }`}
                   variant={plan.current ? 'outline' : 'default'}
                   disabled={plan.current}
                 >
@@ -178,7 +187,7 @@ export function PlansPaymentsView() {
       </div>
 
       {/* Payment Method */}
-      <Card>
+      <Card className="dark:bg-slate-900/40 dark:border-slate-800">
         <CardHeader>
           <CardTitle>Método de Pago</CardTitle>
           <CardDescription>
@@ -186,26 +195,31 @@ export function PlansPaymentsView() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+          <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+              <div className="h-12 w-12 rounded bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 flex items-center justify-center">
                 <CreditCard className="h-6 w-6 text-white" />
               </div>
               <div>
                 <p className="text-sm">Visa •••• 4242</p>
-                <p className="text-xs text-slate-500">Vence 12/2026</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Vence 12/2026</p>
               </div>
             </div>
-            <Button variant="outline">Actualizar</Button>
+            <Button variant="outline" className="dark:border-slate-700 dark:text-slate-100">
+              Actualizar
+            </Button>
           </div>
-          <Button variant="outline" className="w-full">
+          <Button
+            variant="outline"
+            className="w-full dark:border-slate-700 dark:text-slate-100 dark:hover:bg-white/10"
+          >
             + Agregar Método de Pago
           </Button>
         </CardContent>
       </Card>
 
       {/* Invoices */}
-      <Card>
+      <Card className="dark:bg-slate-900/40 dark:border-slate-800">
         <CardHeader>
           <CardTitle>Historial de Facturación</CardTitle>
           <CardDescription>
@@ -214,33 +228,41 @@ export function PlansPaymentsView() {
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-slate-50 dark:bg-slate-900/40 dark:[&_tr]:border-slate-700">
               <TableRow>
                 <TableHead>Factura</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300">Fecha</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300">Plan</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300">Monto</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300">Estado</TableHead>
+                <TableHead className="text-right text-slate-600 dark:text-slate-300">
+                  Acción
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {invoices.map((invoice) => (
-                <TableRow key={invoice.id}>
+                <TableRow key={invoice.id} className="border-slate-100 dark:border-slate-800">
                   <TableCell className="font-mono text-sm">{invoice.id}</TableCell>
-                  <TableCell className="text-slate-600">{invoice.date}</TableCell>
+                  <TableCell className="text-slate-600 dark:text-slate-300">
+                    {invoice.date}
+                  </TableCell>
                   <TableCell>{invoice.plan}</TableCell>
                   <TableCell>{invoice.amount}</TableCell>
                   <TableCell>
                     <Badge
                       variant="default"
-                      className="bg-green-100 text-green-700"
+                      className="bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-200"
                     >
                       Pagado
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="dark:text-slate-100 dark:hover:bg-slate-800/60"
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Descargar
                     </Button>

@@ -137,20 +137,36 @@ export const CANCEL_APPOINTMENT_TOOL = {
   messages: [],
   function: {
     name: 'cancel_appointment',
-    description: 'Cancela una cita existente del cliente.',
+    description: 'Cancelar una cita existente. Usa esta función cuando el cliente quiera cancelar una cita.',
     parameters: {
       type: 'object',
       properties: {
+        clientName: {
+          type: 'string',
+          description: 'Nombre completo del cliente que quiere cancelar'
+        },
         clientPhone: {
           type: 'string',
-          description: 'Número de teléfono del cliente'
+          description: 'Número de teléfono del cliente (sin espacios ni guiones)'
+        },
+        clientEmail: {
+          type: 'string',
+          description: 'Email del cliente (opcional)'
+        },
+        serviceType: {
+          type: 'string',
+          description: 'Tipo de servicio asociado a la cita'
         },
         appointmentDate: {
           type: 'string',
           description: 'Fecha de la cita a cancelar en formato YYYY-MM-DD'
-        }
+        },
+        appointmentTime: {
+          type: 'string',
+          description: 'Hora original de la cita en formato HH:MM (24 horas)'
+        },
       },
-      required: ['clientPhone', 'appointmentDate']
+      required: ['clientName', 'clientPhone', 'serviceType', 'appointmentDate', 'appointmentTime']
     }
   }
 };

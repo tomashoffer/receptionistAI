@@ -9,6 +9,8 @@ export interface VapiAssistant {
   status: 'draft' | 'published';
   createdAt: string;
   updatedAt: string;
+  first_message?: string;
+  voice_id?: string;
   local_assistant?: {
     id: string;
     business_id: string;
@@ -51,6 +53,13 @@ export interface VapiVoice {
   provider: string;
 }
 
+type CreateAssistantResponse = {
+  vapiAssistant?: Partial<Pick<VapiAssistant, 'id' | 'name' | 'status' | 'createdAt' | 'updatedAt'>>;
+  dbAssistant?: VapiAssistant['local_assistant'];
+};
+
+type UpdateAssistantResponse = VapiAssistant['local_assistant'];
+
 /**
  * Servicio para interactuar con Vapi
  * Gestiona la creación y configuración de asistentes AI mediante Vapi
@@ -70,7 +79,7 @@ class VapiService {
       const endpoint = isSpanish ? 'spanish' : 'english';
 
       // Llamar al nuevo endpoint de Vapi
-      const response = await apiService.request(
+      const response = (await apiService.request(
         `${this.vapiBaseUrl}/business/${data.businessId}/assistant/${endpoint}`,
         {
           method: 'POST',
@@ -95,15 +104,21 @@ class VapiService {
             },
           }),
         }
-      );
+      )) as CreateAssistantResponse;
 
-      // Adaptar la respuesta de Vapi al formato esperado
+      const now = new Date().toISOString();
+      const vapiAssistant = response.vapiAssistant ?? {};
+
       return {
-        id: response.vapiAssistant?.id || '',
-        name: response.vapiAssistant?.name || data.name,
+        id: vapiAssistant.id || '',
+        name: vapiAssistant.name || data.name,
         prompt: data.prompt,
+        voice: data.voice,
         voice_id: data.voice,
         language: data.language,
+        status: vapiAssistant.status || 'draft',
+        createdAt: vapiAssistant.createdAt || now,
+        updatedAt: vapiAssistant.updatedAt || now,
         first_message: data.firstMessage || '',
         local_assistant: response.dbAssistant,
       } as VapiAssistant;
@@ -196,20 +211,26 @@ class VapiService {
 
       console.log('📤 Frontend - Enviando updatePayload:', updatePayload);
 
-      const response = await apiService.request(
+      const response = (await apiService.request(
         `${this.vapiBaseUrl}/business/${data.businessId}/assistant`,
         {
           method: 'PUT',
           body: JSON.stringify(updatePayload),
         }
-      );
+      )) as UpdateAssistantResponse;
+
+      const now = new Date().toISOString();
 
       return {
         id: assistantId,
         name: data.name || '',
         prompt: data.prompt || '',
-        voice_id: data.voice || '',
+        voice: data.voice || '',
+        voice_id: data.voice,
         language: data.language || '',
+        status: 'published',
+        createdAt: now,
+        updatedAt: now,
         first_message: data.firstMessage || '',
         local_assistant: response,
       } as VapiAssistant;

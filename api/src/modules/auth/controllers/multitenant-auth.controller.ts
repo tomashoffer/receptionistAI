@@ -14,6 +14,10 @@ import { MultitenantAuthService } from '../services/multitenant-auth.service';
 import { LoginDto, RefreshTokenDto, RegisterDto } from '../dto/auth.dto';
 import { JwtAuthGuard } from '../../../guards/auth-strategy.guard';
 
+const isCookieSecure = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === 'true'
+  : process.env.NODE_ENV === 'production';
+
 @Controller('auth')
 export class MultitenantAuthController {
   constructor(
@@ -31,14 +35,14 @@ export class MultitenantAuthController {
     if (result.access_token && result.refresh_token) {
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isCookieSecure,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000, // 24 horas
       });
 
       res.cookie('refresh_token', result.refresh_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isCookieSecure,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
       });
@@ -58,14 +62,14 @@ export class MultitenantAuthController {
       if (result.access_token && result.refresh_token) {
         res.cookie('access_token', result.access_token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: isCookieSecure,
           sameSite: 'lax',
           maxAge: 24 * 60 * 60 * 1000, // 24 horas
         });
 
         res.cookie('refresh_token', result.refresh_token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: isCookieSecure,
           sameSite: 'lax',
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
         });
@@ -94,7 +98,7 @@ export class MultitenantAuthController {
     if (result.access_token) {
       res.cookie('access_token', result.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isCookieSecure,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000, // 24 horas
       });

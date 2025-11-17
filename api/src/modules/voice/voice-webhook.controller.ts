@@ -439,24 +439,30 @@ export class VoiceWebhookController {
     this.logger.log('🗑️ Cancelando cita:', parameters);
 
     try {
-      const { clientPhone, appointmentDate } = parameters;
-
-      // Buscar cita por teléfono y fecha
-      const appointments = await this.appointmentsService.findByPhoneAndDate(
+      const {
+        clientName,
         clientPhone,
+        serviceType,
         appointmentDate,
-      );
+        appointmentTime,
+      } = parameters;
 
-      if (appointments.length === 0) {
+      // Buscar cita precisa por todos los datos recibidos
+      const appointment =
+        await this.appointmentsService.findByDetails({
+          clientPhone,
+          appointmentDate,
+          appointmentTime,
+          serviceType,
+        });
+
+      if (!appointment) {
         return {
           success: false,
-          // 🚨 CRÍTICO: Mensaje en nivel superior
-          message: `No encontré ninguna cita para el teléfono ${clientPhone} el día ${appointmentDate}. ¿Podrías verificar los datos?`,
+          message: `No encontré ninguna cita para ${clientName ?? 'el cliente'} con teléfono ${clientPhone} el ${appointmentDate} a las ${appointmentTime}. ¿Podrías verificar los datos?`,
         };
       }
 
-      // Cancelar la primera cita encontrada
-      const appointment = appointments[0];
       await this.appointmentsService.remove(appointment.id);
 
       this.logger.log('✅ Cita cancelada exitosamente:', appointment.id);
@@ -469,7 +475,7 @@ export class VoiceWebhookController {
           appointmentTime: appointment.appointmentTime,
         },
         // 🚨 CRÍTICO: Mensaje conversacional en nivel superior
-        message: `Tu cita del ${appointmentDate} a las ${appointment.appointmentTime} ha sido cancelada exitosamente.`,
+        message: `Tu cita del ${appointmentDate} a las ${appointmentTime} ha sido cancelada exitosamente.`,
       };
     } catch (error) {
       this.logger.error('❌ Error cancelando cita:', error);

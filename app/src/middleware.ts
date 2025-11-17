@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
 
 
   // --- Prevent logged-in users from accessing public-only pages ---
-  if (isPublicPath && accessToken) {
+  if (isPublicPath && pathname !== '/' && accessToken) {
     try {
       // Verify token to ensure it's valid before redirecting
       await jwtVerify(accessToken, await getJwtPublicKey());

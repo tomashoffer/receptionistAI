@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Megaphone, PlayCircle } from 'lucide-react';
-import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { businessTypeContent, BusinessType } from '../../config/businessTypeContent';
@@ -116,15 +115,6 @@ export function InformacionExtraTab({ businessType }: Props) {
         );
       })}
 
-      {/* Navigation Buttons */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 md:pt-6">
-        <Button variant="outline" className="w-full sm:w-auto">
-          Anterior
-        </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
-          Siguiente
-        </Button>
-      </div>
     </div>
   );
 }

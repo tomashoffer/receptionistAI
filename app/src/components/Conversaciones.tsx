@@ -196,8 +196,10 @@ function ConversationListItem({
   return (
     <div
       onClick={onClick}
-      className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
-        isActive ? 'bg-purple-50 border-l-4 border-l-purple-600' : ''
+      className={`p-4 border-b border-gray-200 dark:border-slate-800 cursor-pointer transition-colors border-l-4 ${
+        isActive
+          ? 'bg-purple-50 border-l-purple-600 shadow-sm dark:bg-purple-500/20 dark:border-l-purple-300'
+          : 'border-l-transparent hover:bg-gray-50 dark:hover:bg-slate-900/40'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -210,13 +212,13 @@ function ConversationListItem({
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <span className={channelColors[conversation.channel]}>{channelIcons[conversation.channel]}</span>
-              <h4 className={`text-sm ${conversation.unread ? 'font-semibold' : ''}`}>
+              <h4 className={`text-sm text-gray-900 dark:text-slate-100 ${conversation.unread ? 'font-semibold' : ''}`}>
                 {conversation.contactName}
               </h4>
             </div>
-            <span className="text-xs text-gray-500">{conversation.timestamp}</span>
+            <span className="text-xs text-gray-500 dark:text-slate-400">{conversation.timestamp}</span>
           </div>
-          <p className="text-sm text-gray-600 mb-2">
+          <p className="text-sm text-gray-600 dark:text-slate-300 mb-2">
             {truncateMessage(conversation.lastMessage)}
           </p>
           {conversation.tags && conversation.tags.length > 0 && (
@@ -432,12 +434,12 @@ export function Conversaciones() {
                       <div
                         className={`max-w-md px-4 py-2 rounded-lg ${
                           message.sender === 'user'
-                            ? 'bg-green-100 text-gray-900'
-                            : 'bg-white text-gray-900'
+                            ? 'bg-green-100 dark:bg-emerald-500/20 dark:text-black'
+                            : 'bg-white text-gray-900 dark:bg-slate-900/60 dark:text-slate-100'
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        <span className="text-xs text-gray-500 mt-1 block text-right">
+                        <span className="text-xs mt-1 block text-right">
                           {message.timestamp}
                         </span>
                       </div>

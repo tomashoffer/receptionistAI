@@ -9,7 +9,7 @@ import { PageHeader } from '../layout/PageHeader';
 
 export function AccountConfigView() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 dark:text-slate-100">
       <PageHeader
         title="Mi Cuenta"
         subtitle="Gestión de perfil y configuración de seguridad"
@@ -19,7 +19,7 @@ export function AccountConfigView() {
       <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-4 md:space-y-6">
 
         {/* Profile Info */}
-        <Card>
+        <Card className="dark:bg-slate-900/40 dark:border-slate-800">
           <CardHeader>
             <CardTitle className="text-lg md:text-xl">Información del Perfil</CardTitle>
             <CardDescription className="text-sm">
@@ -29,7 +29,7 @@ export function AccountConfigView() {
           <CardContent className="space-y-4 md:space-y-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6">
               <Avatar className="h-16 w-16 md:h-20 md:w-20">
-                <AvatarFallback className="bg-purple-100 text-purple-600 text-lg md:text-xl">
+                <AvatarFallback className="bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-200 text-lg md:text-xl">
                   JD
                 </AvatarFallback>
               </Avatar>
@@ -37,7 +37,7 @@ export function AccountConfigView() {
                 <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   Cambiar Foto
                 </Button>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   JPG, PNG o GIF. Tamaño máximo 5MB.
                 </p>
               </div>
@@ -72,7 +72,7 @@ export function AccountConfigView() {
               <Input id="phone" defaultValue="+52 55 9876 5432" className="text-sm" />
             </div>
 
-            <div className="flex justify-center sm:justify-end pt-4 border-t">
+            <div className="flex justify-center sm:justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
               <Button className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700">
                 <Save className="h-4 w-4 mr-2" />
                 Guardar Cambios
@@ -82,7 +82,7 @@ export function AccountConfigView() {
         </Card>
 
         {/* Security */}
-        <Card>
+        <Card className="dark:bg-slate-900/40 dark:border-slate-800">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
               <Shield className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
@@ -111,7 +111,7 @@ export function AccountConfigView() {
               <Input id="confirmPassword" type="password" className="text-sm" />
             </div>
 
-            <div className="flex justify-center sm:justify-end pt-4 border-t">
+            <div className="flex justify-center sm:justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
               <Button className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700">
                 Actualizar Contraseña
               </Button>
@@ -120,24 +120,24 @@ export function AccountConfigView() {
         </Card>
 
         {/* Danger Zone */}
-        <Card className="border-red-200">
+        <Card className="border-red-200 bg-red-50/80 shadow-sm dark:border-red-500/30 dark:bg-[#1b0b0c] dark:shadow-[0_0_0_1px_rgba(248,113,113,0.2)]">
           <CardHeader>
             <CardTitle className="text-red-600 text-lg md:text-xl">Zona Peligrosa</CardTitle>
             <CardDescription className="text-sm">
               Acciones irreversibles en tu cuenta
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4 p-4 border border-red-200 rounded-lg bg-red-50">
+          <CardContent className="pt-0">
+            <div className="flex flex-col gap-4 p-4 border border-red-100 rounded-lg bg-white shadow-inner dark:border-red-500/40 dark:bg-red-500/10 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35)]">
               <div>
-                <p className="text-sm font-medium text-gray-900">Eliminar Cuenta</p>
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-sm font-medium text-gray-900 dark:text-red-50">Eliminar Cuenta</p>
+                <p className="text-xs text-slate-600 dark:text-red-200 mt-1">
                   Una vez eliminada, no podrás recuperar tu cuenta ni tus datos.
                 </p>
               </div>
               <Button 
                 variant="destructive" 
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto dark:bg-red-600 dark:text-white dark:hover:bg-red-500"
               >
                 Eliminar Cuenta
               </Button>

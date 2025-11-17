@@ -5,7 +5,7 @@ import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
-import { businessTypeContent, BusinessType } from '../../config/businessTypeContent';
+import { businessTypeContent, BusinessType } from '../../.config/businessTypeContent';
 
 interface Situacion {
   id: number;
@@ -227,15 +227,6 @@ export function InformacionEstablecimientoTab({ businessType }: Props) {
         )}
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-6">
-        <Button variant="outline">
-          Anterior
-        </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700">
-          Siguiente
-        </Button>
-      </div>
     </div>
   );
 }

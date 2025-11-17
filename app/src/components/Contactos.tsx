@@ -11,19 +11,11 @@ import {
   Download,
   Upload,
   UserPlus,
-  MoreVertical,
   ExternalLink,
   RefreshCw,
-  Menu
 } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
 import { PageHeader } from './layout/PageHeader';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
 
 interface Contact {
   id: string;
@@ -243,7 +235,6 @@ const tagColors = {
 export function Contactos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [contacts, setContacts] = useState<Contact[]>(mockContacts);
-  const { activeBusiness } = useUserStore();
 
   const filteredContacts = contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -318,16 +309,19 @@ export function Contactos() {
               <TableHead className="text-white text-right">IP & CPM</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className="bg-white">
+          <TableBody className="bg-white dark:bg-transparent">
             {filteredContacts.map((contact) => (
-              <TableRow key={contact.id} className="hover:bg-gray-50">
-                <TableCell className="text-sm text-gray-600">
+              <TableRow
+                key={contact.id}
+                className="hover:bg-gray-50 dark:hover:bg-purple-500/20 transition-colors dark:hover:text-black"
+              >
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.lastUpdated}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.name}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm dark:hover:text-black">
                   <div className="flex items-center gap-2">
                     {contact.phone}
                     {contact.source === 'instagram' && (
@@ -335,7 +329,7 @@ export function Contactos() {
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.email || '-'}
                 </TableCell>
                 <TableCell>
@@ -350,13 +344,13 @@ export function Contactos() {
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.createdAt || '-'}
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.checkoutDate || '-'}
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm dark:hover:text-black">
                   {contact.estimatedAmount ? (
                     <span className="text-purple-600">
                       ${contact.estimatedAmount.value.toLocaleString()} {contact.estimatedAmount.currency}
@@ -376,15 +370,15 @@ export function Contactos() {
         </Table>
 
         {filteredContacts.length === 0 && (
-          <div className="text-center py-12 bg-white">
-            <p className="text-gray-500">No se encontraron contactos</p>
+                  <div className="text-center py-12 bg-white dark:bg-transparent">
+            <p className="text-gray-500 dark:text-slate-400">No se encontraron contactos</p>
           </div>
         )}
       </div>
 
       {/* Footer */}
-      <div className="bg-white border-t border-gray-200 px-8 py-3 flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+      <div className="bg-white dark:bg-transparent border-t border-gray-200 dark:border-slate-800 px-8 py-3 flex items-center justify-between">
+        <p className="text-sm text-gray-500 dark:text-slate-400">
           Mostrando {filteredContacts.length} de {contacts.length} contactos
         </p>
         <div className="flex items-center gap-2">

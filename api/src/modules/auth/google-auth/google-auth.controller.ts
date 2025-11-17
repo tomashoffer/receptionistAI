@@ -6,6 +6,10 @@ import { Response } from 'express';
 import { UserService } from "../../user/user.service";
 import { RoleType } from '../../../constants/role-type';
 
+const isCookieSecure = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === 'true'
+  : process.env.NODE_ENV === 'production';
+
 @ApiTags('Google Auth')
 @Controller('auth/google')
 export class GoogleAuthController {
@@ -53,7 +57,7 @@ export class GoogleAuthController {
     // IMPORTANTE: usar 'access_token' (no 'accessToken') porque el JwtStrategy lo busca así
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isCookieSecure,
       sameSite: 'lax', 
       maxAge: 7 * 24 * 3600 * 1000,
       path: '/', 
@@ -64,7 +68,7 @@ export class GoogleAuthController {
     if (refreshToken) {
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isCookieSecure,
         sameSite: 'lax',
         maxAge: 7 * 24 * 3600 * 1000,
         path: '/', 

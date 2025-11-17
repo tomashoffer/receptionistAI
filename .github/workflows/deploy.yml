@@ -1,0 +1,59 @@
+name: Deploy OCI
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build backend (Nest)
+        run: |
+          cd api
+          npm ci --legacy-peer-deps
+          npm run build
+          tar czf ../api-dist.tar.gz dist
+
+      - name: Build frontend (Next.js)
+        run: |
+          cd app
+          npm ci --legacy-peer-deps
+          npm run build
+          tar czf ../app-next.tar.gz .next
+
+      - name: Copiar artefactos a OCI
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          source: "api-dist.tar.gz,app-next.tar.gz"
+          target: "/tmp/"
+
+      - name: Desplegar y reiniciar servicios
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.OCI_PROJECT_PATH }}
+            tar xzf /tmp/api-dist.tar.gz -C api
+            tar xzf /tmp/app-next.tar.gz -C app
+            rm /tmp/api-dist.tar.gz /tmp/app-next.tar.gz
+            sudo systemctl restart ${{ secrets.OCI_BACK_SERVICE }}
+            sudo systemctl restart ${{ secrets.OCI_FRONT_SERVICE }}

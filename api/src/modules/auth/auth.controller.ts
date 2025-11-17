@@ -37,6 +37,9 @@ import { plainToInstance } from 'class-transformer';
 import { GuestLoginPayloadDto } from "./dto/GuestLoginPayload.dto";
 import { ApiConfigService } from "../../shared/services/api-config.service";
 
+const isCookieSecure = process.env.COOKIE_SECURE
+  ? process.env.COOKIE_SECURE === 'true'
+  : process.env.NODE_ENV === 'production';
 
 @Controller("auth")
 @ApiTags("auth")
@@ -71,14 +74,14 @@ export class AuthController {
         // Configurar cookies HTTP-only para el token
         res.cookie('access_token', token.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isCookieSecure,
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000, // 24 horas
         });
 
         res.cookie('refresh_token', token.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isCookieSecure,
             sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
         });

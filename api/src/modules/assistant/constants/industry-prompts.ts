@@ -31,6 +31,7 @@ function generateBusinessDescription(business: BusinessData): string {
     'consulting': 'una consultora que brinda servicios profesionales especializados',
     'real_estate': 'una inmobiliaria dedicada a ayudar a las personas a encontrar su propiedad ideal',
     'automotive': 'un taller automotriz que brinda servicios de mantenimiento y reparación',
+    'hotel': 'un hotel que brinda servicios de alojamiento y hospedaje',
     'other': 'un negocio que brinda servicios profesionales'
   };
   

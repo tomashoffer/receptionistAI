@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Megaphone, PlayCircle, Plus, Upload, Trash2,
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { ImageWithFallback } from '../../components/landing/figma/ImageWithFallback';
 import {
   Dialog,
   DialogContent,
@@ -349,16 +349,6 @@ export function IntegracionFotosTab({ businessType }: Props) {
             </Button>
           </div>
         )}
-      </div>
-
-      {/* Navigation Buttons */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 md:pt-6">
-        <Button variant="outline" className="w-full sm:w-auto">
-          Anterior
-        </Button>
-        <Button className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
-          Guardar y Continuar
-        </Button>
       </div>
 
       {/* Modal para seleccionar tipo de área común */}

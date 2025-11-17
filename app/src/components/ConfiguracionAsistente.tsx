@@ -260,11 +260,11 @@ export function ConfiguracionAsistente() {
             </p>
 
             {/* Nota importante */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="rounded-lg p-4 border bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200 dark:from-purple-900/40 dark:to-blue-900/40 dark:border-purple-500/40 dark:text-white">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-orange-600 dark:text-purple-100 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-orange-900">
+                  <p className="text-sm  dark:text-white">
                     <span className="font-semibold">Nota importante:</span> WhatsApp API tiene un límite de 24 horas para enviar mensajes después de la última interacción del usuario.
                   </p>
                 </div>
