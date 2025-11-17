@@ -31,6 +31,8 @@ jobs:
           tar czf ../api-dist.tar.gz dist
 
       - name: Build frontend (Next.js)
+        env:
+          NEXT_PUBLIC_API_URL: http://${{ secrets.OCI_HOST }}:3001
         run: |
           cd app
           npm ci --legacy-peer-deps
