@@ -3,9 +3,8 @@
 import { useEffect } from 'react';
 import { useUserStore } from '@/stores/userStore';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
 // This component ensures the client-side user state is in sync with the server-side session.
+// Todas las llamadas al backend pasan por las API routes del frontend (/api/*)
 export default function StateSyncer() {
   const { user, setUser, setIsLoading, setBusinesses, setActiveBusiness, activeBusiness: persistedActiveBusiness, _hasHydrated } = useUserStore();
 
@@ -38,25 +37,9 @@ export default function StateSyncer() {
               
               // Step 2: Fetch businesses for this user
               try {
-                // Get the token from the backend endpoint
-                const tokenResponse = await fetch(`${API_BASE_URL}/auth/token`, {
+                // Usar la API route del frontend para obtener los negocios
+                const businessResponse = await fetch('/api/businesses', {
                   credentials: 'include',
-                });
-                
-                let authHeaders = {};
-                if (tokenResponse.ok) {
-                  const tokenData = await tokenResponse.json();
-                  if (tokenData.accessToken) {
-                    authHeaders = {
-                      'Authorization': `Bearer ${tokenData.accessToken}`,
-                      'Content-Type': 'application/json',
-                    };
-                  }
-                }
-                
-                const businessResponse = await fetch(`${API_BASE_URL}/businesses`, {
-                  credentials: 'include',
-                  headers: authHeaders,
                 });
                 
                 if (businessResponse.ok) {
@@ -92,9 +75,8 @@ export default function StateSyncer() {
                     // Cargar el business completo con la relación assistant
                     if (shouldFetchFull) {
                       try {
-                        const fullBusinessResponse = await fetch(`${API_BASE_URL}/businesses/${businessToActivate.id}`, {
+                        const fullBusinessResponse = await fetch(`/api/businesses/${businessToActivate.id}`, {
                           credentials: 'include',
-                          headers: authHeaders,
                         });
                         
                         if (fullBusinessResponse.ok) {

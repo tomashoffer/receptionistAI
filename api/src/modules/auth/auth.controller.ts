@@ -10,7 +10,9 @@ import {
     Post,
     Req,
     Res,
-    UnauthorizedException
+    UnauthorizedException,
+    NotFoundException,
+    ForbiddenException
 } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from 'express';
@@ -62,36 +64,53 @@ export class AuthController {
         @Headers() headers,
         @Res({ passthrough: true }) res: Response
     ): Promise<LoginPayloadDto> {
-        const { user: userEntity, isPasswordExpired } = await this.authService.validateUser(userLoginDto, headers.host);
+        try {
+            const { user: userEntity, isPasswordExpired } = await this.authService.validateUser(userLoginDto, headers.host);
 
-        const token: TokenPayloadDto = await this.authService.createAccessToken(
-            {
-                userId: userEntity.id,
-                role: userEntity.role,
+            const token: TokenPayloadDto = await this.authService.createAccessToken(
+                {
+                    userId: userEntity.id,
+                    role: userEntity.role,
+                }
+            );
+
+            // Configurar cookies HTTP-only para el token
+            res.cookie('access_token', token.accessToken, {
+                httpOnly: true,
+                secure: isCookieSecure,
+                sameSite: 'lax',
+                maxAge: 24 * 60 * 60 * 1000, // 24 horas
+            });
+
+            res.cookie('refresh_token', token.refreshToken, {
+                httpOnly: true,
+                secure: isCookieSecure,
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+            });
+
+            return new LoginPayloadDto(
+                userEntity.toDto(),
+                token,
+                AuthActions.LOGIN,
+                isPasswordExpired
+            );
+        } catch (error) {
+            // Re-lanzar el error para que NestJS lo maneje correctamente
+            if (error instanceof NotFoundException) {
+                throw new HttpException(
+                    { message: 'Usuario no encontrado. Verifica tu email y contraseña.' },
+                    HttpStatus.NOT_FOUND
+                );
             }
-        );
-
-        // Configurar cookies HTTP-only para el token
-        res.cookie('access_token', token.accessToken, {
-            httpOnly: true,
-            secure: isCookieSecure,
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000, // 24 horas
-        });
-
-        res.cookie('refresh_token', token.refreshToken, {
-            httpOnly: true,
-            secure: isCookieSecure,
-            sameSite: 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
-        });
-
-        return new LoginPayloadDto(
-            userEntity.toDto(),
-            token,
-            AuthActions.LOGIN,
-            isPasswordExpired
-        );
+            if (error instanceof ForbiddenException) {
+                throw new HttpException(
+                    { message: 'Credenciales inválidas. Verifica tu email y contraseña.' },
+                    HttpStatus.FORBIDDEN
+                );
+            }
+            throw error;
+        }
     }
 
     @Post("guest-login")
@@ -143,16 +162,22 @@ export class AuthController {
         
         // Crear negocio asociado (solo si se proporcionan los datos del negocio)
         if (registerData.business_name && registerData.business_phone && registerData.industry) {
-            const businessData = {
-                owner_id: user.id,
-                name: registerData.business_name,
-                phone_number: registerData.business_phone,
-                industry: registerData.industry,
-                ai_prompt: `Eres María, la recepcionista virtual de ${registerData.business_name}. Tu trabajo es atender llamadas telefónicas de manera profesional y amable, ayudar a los clientes con información sobre servicios, agendar citas y resolver consultas generales.`,
-                status: 'trial' as any,
-            };
-            
-            await this.businessService.create(businessData, user.id);
+            try {
+                const businessData = {
+                    owner_id: user.id,
+                    name: registerData.business_name,
+                    phone_number: registerData.business_phone,
+                    industry: registerData.industry,
+                    ai_prompt: `Eres María, la recepcionista virtual de ${registerData.business_name}. Tu trabajo es atender llamadas telefónicas de manera profesional y amable, ayudar a los clientes con información sobre servicios, agendar citas y resolver consultas generales.`,
+                    status: 'trial' as any,
+                };
+                
+                await this.businessService.create(businessData, user.id);
+            } catch (error) {
+                // Si falla la creación del business, eliminar el usuario creado
+                await this.userService.deleteUser({ id: user.id });
+                throw error; // Re-lanzar el error para que se propague
+            }
         }
         
         return { email: user.email };

@@ -5,17 +5,17 @@ import { Building2, Bot, CheckCircle } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
 
 const businessTypeLabels: Record<string, string> = {
+  'medical_clinic': 'Salud',
+  'beauty_salon': 'Belleza',
+  'restaurant': 'Gastronomía',
+  'fitness_center': 'Fitness',
   'hair_salon': 'Peluquería',
-  'restaurant': 'Restaurante',
-  'medical_clinic': 'Clínica Médica',
   'dental_clinic': 'Clínica Dental',
-  'fitness_center': 'Gimnasio',
-  'beauty_salon': 'Salón de Belleza',
-  'law_firm': 'Estudio Jurídico',
-  'consulting': 'Consultoría',
+  'law_firm': 'Legal',
+  'automotive': 'Automotriz',
   'real_estate': 'Inmobiliaria',
-  'automotive': 'Taller Automotriz',
   'hotel': 'Hotel',
+  'consulting': 'Consultoría',
   'other': 'Otro'
 };
 
@@ -52,7 +52,7 @@ export function BusinessSwitchNotification() {
             <p className="text-sm text-gray-700 mb-2">{activeBusiness.name}</p>
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
-                {businessTypeLabels[activeBusiness.type] || activeBusiness.industry}
+                {businessTypeLabels[activeBusiness.industry] || activeBusiness.industry}
               </span>
               <span className="flex items-center gap-1">
                 <Bot className="w-3 h-3" />

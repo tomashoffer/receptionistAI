@@ -5,7 +5,7 @@ class ApiService {
 
   async initializeToken() {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/token`, {
+      const response = await fetch('/api/auth/token', {
         credentials: 'include',
       });
       
@@ -41,12 +41,29 @@ class ApiService {
   }
 
   async request(endpoint: string, options: RequestInit = {}): Promise<unknown> {
+    // Mapear endpoints del backend a API routes del frontend
+    let frontendEndpoint = endpoint;
+    
+    // Mapear endpoints de businesses
+    if (endpoint.startsWith('/businesses')) {
+      frontendEndpoint = `/api${endpoint}`;
+    }
+    // Mapear otros endpoints que necesiten API routes
+    else if (endpoint.startsWith('/assistant-configs')) {
+      frontendEndpoint = `/api${endpoint}`;
+    }
+    // Para otros endpoints, usar directamente (ya tienen su API route o no la necesitan)
+    else {
+      frontendEndpoint = `/api${endpoint}`;
+    }
+    
     // Asegurar que tenemos el token antes de hacer la request
-    if (!this.token) {
+    // Excepto para login y register que no requieren token
+    if (!this.token && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
       await this.initializeToken();
     }
     
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = frontendEndpoint;
     const authHeaders = this.getAuthHeaders();
     const config: RequestInit = {
       ...options,
@@ -57,7 +74,13 @@ class ApiService {
       credentials: 'include',
     };
 
-    const response = await fetch(url, config);
+    let response: Response;
+    try {
+      response = await fetch(url, config);
+    } catch (error) {
+      // Error de red (Failed to fetch)
+      throw new Error('No se pudo conectar con el servidor. Verifica tu conexión a internet.');
+    }
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -71,7 +94,8 @@ class ApiService {
       let errorMessage = `Error ${response.status}`;
       try {
         const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
+        // El backend puede devolver { message: '...' } o directamente el mensaje
+        errorMessage = errorData.message || errorData.error?.message || errorMessage;
       } catch {
         // Si no se puede parsear el JSON, usar mensajes por defecto
         switch (response.status) {
@@ -82,10 +106,10 @@ class ApiService {
             errorMessage = 'No autorizado. Verifica tus credenciales.';
             break;
           case 403:
-            errorMessage = 'No tienes permisos para realizar esta acción.';
+            errorMessage = 'Credenciales inválidas. Verifica tu email y contraseña.';
             break;
           case 404:
-            errorMessage = 'Recurso no encontrado.';
+            errorMessage = 'Usuario no encontrado. Verifica tu email y contraseña.';
             break;
           case 409:
             errorMessage = 'El usuario ya existe. Intenta con otro email.';
@@ -110,7 +134,7 @@ class ApiService {
   async refreshToken() {
     try {
       // Obtener el token de las cookies primero
-      const tokenResponse = await fetch(`${API_BASE_URL}/auth/token`, {
+      const tokenResponse = await fetch('/api/auth/token', {
         credentials: 'include',
       });
       
@@ -124,7 +148,7 @@ class ApiService {
         throw new Error('No refresh token available');
       }
       
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,25 +173,56 @@ class ApiService {
     }
   }
 
-  // Auth endpoints
+  // Auth endpoints - Usar API routes de Next.js para evitar problemas de CORS
   async login(email: string, password: string) {
-    return this.request('/auth/login', {
+    // Usar la API route de Next.js en lugar de llamar directamente al backend
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ email, password }),
+      credentials: 'include',
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}`);
+    }
+
+    return response.json();
   }
 
   async register(userData: any) {
-    return this.request('/auth/register', {
+    // Usar la API route de Next.js en lugar de llamar directamente al backend
+    const response = await fetch('/api/auth/register', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(userData),
+      credentials: 'include',
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}`);
+    }
+
+    return response.json();
   }
 
   async logout() {
     try {
-      // 1. Llamar al backend para hacer logout
-      await this.request('/auth/logout', { method: 'POST' });
+      // 1. Llamar al backend para hacer logout (si existe la API route)
+      try {
+        await fetch('/api/auth/logout', { 
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch (error) {
+        console.warn('No se pudo llamar al endpoint de logout:', error);
+      }
       
       // 2. Limpiar token interno
       this.token = null;
@@ -214,6 +269,12 @@ class ApiService {
     return this.request(`/businesses/${businessId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBusiness(businessId: string) {
+    return this.request(`/businesses/${businessId}`, {
+      method: 'DELETE',
     });
   }
 
@@ -298,6 +359,33 @@ class ApiService {
   async getCallStats(businessId: string, params?: any) {
     const queryParams = new URLSearchParams(params).toString();
     return this.request(`/call-logs/stats/${businessId}?${queryParams}`);
+  }
+
+  // Assistant Config endpoints
+  async getAssistantConfig(businessId: string) {
+    return this.request(`/assistant-configs/business/${businessId}`);
+  }
+
+  async createAssistantConfig(data: {
+    business_id: string;
+    industry: string;
+    prompt: string;
+    config_data: any;
+  }) {
+    return this.request('/assistant-configs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAssistantConfig(configId: string, data: {
+    prompt?: string;
+    config_data?: any;
+  }) {
+    return this.request(`/assistant-configs/${configId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
 }
 

@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Business, Industry } from '../entities/business.entity';
 import { BusinessUser, UserRole } from '../entities/business-user.entity';
 import { CreateBusinessDto, UpdateBusinessDto } from '../dto/business.dto';
 import { CreateBusinessUserDto, UpdateBusinessUserDto, InviteUserDto } from '../dto/business-user.dto';
 import { AssistantService } from '../../assistant/assistant.service';
 import { VapiService } from '../../voice/vapi.service';
+import { AssistantConfigService } from '../../assistant/assistant-config.service';
+import { generateDefaultAssistantConfig, generateDefaultPrompt } from '../../assistant/helpers/default-config-generator';
 
 @Injectable()
 export class BusinessService {
@@ -21,6 +23,9 @@ export class BusinessService {
     private assistantService: AssistantService,
     @Inject(forwardRef(() => VapiService))
     private vapiService: VapiService,
+    @Inject(forwardRef(() => AssistantConfigService))
+    private assistantConfigService: AssistantConfigService,
+    private dataSource: DataSource,
   ) {}
 
   async create(createBusinessDto: CreateBusinessDto, ownerId: string): Promise<Business> {
@@ -62,21 +67,73 @@ export class BusinessService {
     if (createBusinessDto.address) business.address = createBusinessDto.address;
     if (createBusinessDto.website) business.website = createBusinessDto.website;
 
-    const savedBusiness = await this.businessRepository.save(business);
+    // Usar transacción para asegurar que todo se cree o nada
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Crear el usuario owner del negocio
-    const businessUser = this.businessUserRepository.create({
-      business_id: savedBusiness.id,
-      user_id: ownerId,
-      role: UserRole.OWNER,
-      first_name: 'Owner',
-      last_name: 'User',
-      email: 'owner@example.com', // Esto debería venir del usuario autenticado
-    });
+    try {
+      // Guardar el negocio dentro de la transacción
+      const savedBusiness = await queryRunner.manager.save(Business, business);
 
-    await this.businessUserRepository.save(businessUser);
+      // Crear el usuario owner del negocio
+      const businessUser = queryRunner.manager.create(BusinessUser, {
+        business_id: savedBusiness.id,
+        user_id: ownerId,
+        role: UserRole.OWNER,
+        first_name: 'Owner',
+        last_name: 'User',
+        email: 'owner@example.com', // Esto debería venir del usuario autenticado
+      });
 
-    return savedBusiness;
+      await queryRunner.manager.save(BusinessUser, businessUser);
+
+      // Crear assistant-config automáticamente con valores por defecto
+      // Si falla, la transacción hará rollback de todo
+      const defaultConfig = generateDefaultAssistantConfig(savedBusiness.industry, savedBusiness.name);
+      const defaultPrompt = generateDefaultPrompt(savedBusiness.industry, savedBusiness.name);
+
+      // Validar antes de guardar
+      const { ConfigValidatorFactory } = await import('../../assistant/validators/validator-factory');
+      const validator = ConfigValidatorFactory.getValidator(savedBusiness.industry);
+      const validationResult = validator.validate(defaultConfig);
+      
+      if (!validationResult.isValid) {
+        throw new ConflictException({
+          message: 'Invalid configuration data',
+          errors: validationResult.errors,
+        });
+      }
+
+      // Usar el servicio pero dentro de la transacción
+      // Necesitamos inyectar el repositorio de AssistantConfiguration
+      const { AssistantConfiguration } = await import('../../assistant/entities/assistant-configuration.entity');
+      const configRepo = queryRunner.manager.getRepository(AssistantConfiguration);
+      
+      const config = configRepo.create({
+        business_id: savedBusiness.id,
+        industry: savedBusiness.industry,
+        prompt: defaultPrompt,
+        config_data: defaultConfig,
+        created_by: ownerId,
+        version: 1,
+      });
+
+      await configRepo.save(config);
+
+      // Si todo salió bien, hacer commit
+      await queryRunner.commitTransaction();
+      
+      return savedBusiness;
+    } catch (error) {
+      // Si algo falla, hacer rollback de todo
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error creating business with assistant config:`, error);
+      throw error; // Re-lanzar el error para que el controller lo maneje
+    } finally {
+      // Liberar el query runner
+      await queryRunner.release();
+    }
   }
 
   async findAll(ownerId: string): Promise<Business[]> {
@@ -114,6 +171,7 @@ export class BusinessService {
 
   async update(id: string, updateBusinessDto: UpdateBusinessDto, ownerId: string): Promise<Business> {
     const business = await this.findOne(id, ownerId);
+    const previousIndustry = business.industry;
 
     // Si se está actualizando el número telefónico, verificar que no esté en uso
     // TODO: Descomentar cuando UpdateBusinessDto incluya phone_number
@@ -127,8 +185,59 @@ export class BusinessService {
     //   }
     // }
 
+    // Mapear industry string a enum si viene como string
+    if (updateBusinessDto.industry) {
+      const industryMapping: Record<string, Industry> = {
+        'hair_salon': Industry.HAIR_SALON,
+        'restaurant': Industry.RESTAURANT,
+        'medical_clinic': Industry.MEDICAL_CLINIC,
+        'dental_clinic': Industry.DENTAL_CLINIC,
+        'fitness_center': Industry.FITNESS_CENTER,
+        'beauty_salon': Industry.BEAUTY_SALON,
+        'law_firm': Industry.LAW_FIRM,
+        'consulting': Industry.CONSULTING,
+        'real_estate': Industry.REAL_ESTATE,
+        'automotive': Industry.AUTOMOTIVE,
+        'hotel': Industry.HOTEL,
+        'other': Industry.OTHER,
+      };
+      (updateBusinessDto as any).industry = industryMapping[updateBusinessDto.industry] || Industry.OTHER;
+    }
+
     Object.assign(business, updateBusinessDto);
     const savedBusiness = await this.businessRepository.save(business);
+    
+    // Si cambió el industry, actualizar la assistant-config con valores por defecto del nuevo industry
+    if (updateBusinessDto.industry && previousIndustry !== savedBusiness.industry) {
+      try {
+        const existingConfig = await this.assistantConfigService.findByBusinessId(savedBusiness.id);
+        
+        if (existingConfig) {
+          // Actualizar con nueva config por defecto
+          const defaultConfig = generateDefaultAssistantConfig(savedBusiness.industry, savedBusiness.name);
+          const defaultPrompt = generateDefaultPrompt(savedBusiness.industry, savedBusiness.name);
+
+          await this.assistantConfigService.update(existingConfig.id, {
+            prompt: defaultPrompt,
+            config_data: defaultConfig,
+          }, ownerId);
+        } else {
+          // Crear nueva config si no existe
+          const defaultConfig = generateDefaultAssistantConfig(savedBusiness.industry, savedBusiness.name);
+          const defaultPrompt = generateDefaultPrompt(savedBusiness.industry, savedBusiness.name);
+
+          await this.assistantConfigService.create({
+            business_id: savedBusiness.id,
+            industry: savedBusiness.industry,
+            prompt: defaultPrompt,
+            config_data: defaultConfig,
+          }, ownerId);
+        }
+      } catch (error) {
+        this.logger.error(`Error updating assistant config after industry change for business ${savedBusiness.id}:`, error);
+        // No lanzamos error para no bloquear la actualización del business
+      }
+    }
     
     // Devolver el business completo con todas las relaciones actualizadas
     const updatedBusiness = await this.businessRepository.findOne({

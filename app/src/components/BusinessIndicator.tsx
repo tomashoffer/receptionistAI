@@ -4,17 +4,17 @@ import { Building2, Bot } from 'lucide-react';
 import { useUserStore } from '../stores/userStore';
 
 const businessTypeLabels: Record<string, string> = {
+  'medical_clinic': 'Salud',
+  'beauty_salon': 'Belleza',
+  'restaurant': 'Gastronomía',
+  'fitness_center': 'Fitness',
   'hair_salon': 'Peluquería',
-  'restaurant': 'Restaurante',
-  'medical_clinic': 'Clínica Médica',
   'dental_clinic': 'Clínica Dental',
-  'fitness_center': 'Gimnasio',
-  'beauty_salon': 'Salón de Belleza',
-  'law_firm': 'Estudio Jurídico',
-  'consulting': 'Consultoría',
+  'law_firm': 'Legal',
+  'automotive': 'Automotriz',
   'real_estate': 'Inmobiliaria',
-  'automotive': 'Taller Automotriz',
   'hotel': 'Hotel',
+  'consulting': 'Consultoría',
   'other': 'Otro'
 };
 
@@ -33,7 +33,7 @@ export function BusinessIndicator() {
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-sm text-gray-900">{activeBusiness.name}</h3>
             <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded">
-              {businessTypeLabels[activeBusiness.type] || activeBusiness.industry}
+              {businessTypeLabels[activeBusiness.industry] || activeBusiness.industry}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-gray-600">

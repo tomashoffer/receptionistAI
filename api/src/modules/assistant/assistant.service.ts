@@ -146,7 +146,6 @@ export class AssistantService {
     const businessData: BusinessData = {
       name: business.name,
       industry: business.industry,
-      rubro: business.rubro,
       phone_number: business.phone_number,
       address: business.address,
       email: business.email,

@@ -1,13 +1,117 @@
-import { useState, useMemo } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Checkbox } from '../ui/checkbox';
-import { ChevronDown, ChevronRight, Edit2, Trash2 } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Badge } from '../ui/badge';
 import { useUserStore } from '../../stores/userStore';
-import { businessAppointmentType, appointmentTypeLabels } from '../../config/businessTypeContent';
+import { businessAppointmentType, appointmentTypeLabels, businessTypeContent, BusinessType, ConfigField as ConfigFieldType } from '../../config/businessConfig/businessTypeContent';
+import { SituacionCard } from './shared/SituacionCard';
+import { ConfigFieldInput } from './shared/ConfigFieldInput';
+import { AccordionSection } from './shared/AccordionSection';
+import { Plus } from 'lucide-react';
+import { Button } from '../ui/button';
+
+// Custom hook para sincronizar estado local con prop (source of truth)
+function useSyncedFields(initialData: any, content: any): [Record<string, ConfigField>, (fields: Record<string, ConfigField>) => void] {
+  // Función helper para construir fields desde initialData o defaults
+  const buildFieldsFromData = (data: any, contentFields: any[]): Record<string, ConfigField> => {
+    const newFields: Record<string, ConfigField> = {};
+    
+    // Inicializar con defaults del businessTypeContent
+    contentFields.forEach((field: any) => {
+      newFields[field.key] = {
+        label: field.label,
+        value: field.defaultValue,
+        locked: field.locked || false,
+        multiline: field.multiline,
+        rows: field.rows
+      };
+    });
+
+    // Sobrescribir con initialData del backend/store si existe
+    if (data?.fields && Array.isArray(data.fields) && data.fields.length > 0) {
+      data.fields.forEach((field: any) => {
+        if (newFields[field.key]) {
+          newFields[field.key] = {
+            ...newFields[field.key],
+            value: field.value ?? newFields[field.key].value,
+            // locked puede ser true o false, así que verificamos explícitamente si está definido
+            locked: field.locked !== undefined && field.locked !== null ? field.locked : newFields[field.key].locked,
+            multiline: field.multiline !== undefined ? field.multiline : newFields[field.key].multiline,
+            rows: field.rows !== undefined ? field.rows : newFields[field.key].rows
+          };
+        }
+      });
+    }
+    
+    return newFields;
+  };
+
+  // Crear un hash estable basado en valores (no referencias) para detectar cambios reales
+  const fieldsHash = useMemo(() => {
+    if (!initialData?.fields || !Array.isArray(initialData.fields) || initialData.fields.length === 0) {
+      return '';
+    }
+    // Usar JSON.stringify para comparar valores, no referencias
+    return JSON.stringify(
+      initialData.fields
+        .map((f: any) => ({
+          key: f.key,
+          value: f.value || '',
+          locked: f.locked || false,
+          multiline: f.multiline,
+          rows: f.rows
+        }))
+        .sort((a: any, b: any) => a.key.localeCompare(b.key))
+    );
+  }, [initialData?.fields]);
+
+  // Hash para detectar cambios en content (para nuevos campos)
+  const contentHash = useMemo(() => {
+    return JSON.stringify(
+      content.configuracionAsistente.fields.map((f: any) => f.key).sort()
+    );
+  }, [content.configuracionAsistente.fields]);
+
+  // Inicializar estado local desde initialData
+  const [fields, setFields] = useState<Record<string, ConfigField>>(() => {
+    return buildFieldsFromData(initialData, content.configuracionAsistente.fields);
+  });
+
+  // Refs para rastrear los últimos hashes procesados
+  const lastFieldsHashRef = useRef<string | null>(null);
+  const lastContentHashRef = useRef<string | null>(null);
+
+  // Sincronizar cuando initialData cambia (datos guardados)
+  useEffect(() => {
+    // Solo actualizar si el hash cambió realmente
+    if (fieldsHash === lastFieldsHashRef.current) {
+      return;
+    }
+
+    const newFields = buildFieldsFromData(initialData, content.configuracionAsistente.fields);
+    setFields(newFields);
+    lastFieldsHashRef.current = fieldsHash;
+  }, [fieldsHash, initialData, content.configuracionAsistente.fields]);
+
+  // Sincronizar cuando content cambia (nuevos campos del business type)
+  useEffect(() => {
+    // Solo actualizar si el content cambió realmente (nuevos campos)
+    if (contentHash === lastContentHashRef.current) {
+      return;
+    }
+
+    // Si hay initialData, mantener los valores guardados y solo agregar nuevos campos
+    const newFields = buildFieldsFromData(initialData, content.configuracionAsistente.fields);
+    setFields(newFields);
+    lastContentHashRef.current = contentHash;
+  }, [contentHash, initialData, content.configuracionAsistente.fields]);
+
+  return [fields, setFields];
+}
+
+interface ConfiguracionAsistenteTabProps {
+  onProgressChange?: (progress: number) => void;
+  initialData?: any;
+  onDataChange?: (data: any) => void;
+}
 
 interface ConfigField {
   label: string;
@@ -22,9 +126,10 @@ interface Situacion {
   numero: number;
   titulo: string;
   descripcion: string;
+  revisado: boolean;
 }
 
-export function ConfiguracionAsistenteTab() {
+export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDataChange }: ConfiguracionAsistenteTabProps = {}) {
   const { activeBusiness } = useUserStore();
   
   // Determine appointment type and labels
@@ -37,6 +142,15 @@ export function ConfiguracionAsistenteTab() {
   const labels = useMemo(() => {
     return appointmentTypeLabels[appointmentType as keyof typeof appointmentTypeLabels];
   }, [appointmentType]);
+
+  // Get business type content
+  const businessType = useMemo(() => {
+    return (activeBusiness?.industry as BusinessType) || 'other';
+  }, [activeBusiness]);
+
+  const content = useMemo(() => {
+    return businessTypeContent[businessType] || businessTypeContent.other;
+  }, [businessType]);
 
   // Dynamic label for business info
   const businessInfoLabel = useMemo(() => {
@@ -58,118 +172,128 @@ export function ConfiguracionAsistenteTab() {
     }
   }, [activeBusiness]);
 
-  const [fields, setFields] = useState<Record<string, ConfigField>>({
-    nombre: {
-      label: 'Nombre del asistente',
-      value: 'Camila',
-      locked: true
-    },
-    tono: {
-      label: 'Tono',
-      value: 'Formal',
-      locked: true
-    },
-    establecimiento: {
-      label: 'Nombre del establecimiento',
-      value: 'Edelweiss',
-      locked: true
-    },
-    ubicacion: {
-      label: 'Ubicación',
-      value: 'Punta del Este',
-      locked: true
-    },
-    tipoEstablecimiento: {
-      label: 'Tipo de establecimiento',
-      value: 'Hotel 5 estrellas',
-      locked: true
-    },
-    infoHotel: {
-      label: 'Información del hotel',
-      value: 'Un hotel boutique 5 estrellas en Punta del Este, Uruguay; Ambiente exclusivo y acogedor inspirado en los Alpes suizos; Diseño arquitectónico que fusiona elegancia europea con calidez uruguaya; Servicios premium personalizados.',
-      locked: true,
-      multiline: true,
-      rows: 4
-    },
-    propuesta: {
-      label: 'Propuesta de valor',
-      value: 'Experimentar la sofisticación alpina con servicios excepcionales en un entorno costero privilegiado. Ideal para viajeros que buscan exclusividad y atención al detalle en uno de los destinos más codiciados de Sudamérica.',
-      locked: true,
-      multiline: true,
-      rows: 4
-    },
-    web: {
-      label: 'Página web',
-      value: 'https://edelweiss.uy',
-      locked: true
-    }
-  });
+  // Usar custom hook para sincronizar fields con initialData (source of truth)
+  // Esto asegura que siempre se sincronice cuando initialData cambia, incluso después de desmontar/montar
+  const [fields, setFields] = useSyncedFields(initialData, content);
 
+  // Sincronizar directrices con initialData
   const [directrices, setDirectrices] = useState({
-    value: `• Da análisis curiosos y entretenidos.
-• Da una respuesta corta y dinámica de máximo 2-3 renglones.
-• Utiliza lenguaje simple y natural, como si hablaras con un amigo.
-• Evita la excesiva "jerga" en tono de ventas.
-• Sigue siempre estrictamente la información brindada en el "conocimiento/context".
-• No recomiendes servicios, actividades, atracciones turísticas, gastronomía o restaurantes que no hayas consultado en el "conocimiento/context".
-• Responde SOLO preguntas y consultas relacionadas al establecimiento, operaciones de check-in/out, amenities, servicios, ubicación, restaurantes del hotel y actividades en Punta del Este.
-• La información del establecimiento es PRIORIDAD ABSOLUTA. Responde sobre el hotel en cada consulta.
-• Camila no puede brindar info/recomendaciones que no estén en el "conocimiento/context".
-• Conocimiento/context: El servicio tiene fecha y horario de registro de entrada y registro de salida, incluir dichos datos en la conversación.`,
-    locked: true
+    value: initialData?.directrices?.value || content.configuracionAsistente.directrices.defaultValue,
+    locked: initialData?.directrices?.locked || false
   });
 
-  const [situacionesExpanded, setSituacionesExpanded] = useState(false);
-  const [situaciones, setSituaciones] = useState<Situacion[]>([
-    {
-      id: 1,
-      numero: 1,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'No conocemos la reserva que cliente booking confirmó/ons'
-    },
-    {
-      id: 2,
-      numero: 2,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'El cliente menciona que le envió un mail o mensaje a IFFY Letters, Booking/Airb, ETC pero no sabe'
-    },
-    {
-      id: 3,
-      numero: 3,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'Ticket no emitido o cancelado / Confirmó y Donde lo hicieron de cheque'
-    },
-    {
-      id: 4,
-      numero: 4,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'Hay problemas o Inconvenientes / Cualquier Deseos (Pillow, Amenities de Cheque'
-    },
-    {
-      id: 5,
-      numero: 5,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'Quieren contactarnos a la recepción o frontdesk/recibe mientras lo atenderán que'
-    },
-    {
-      id: 6,
-      numero: 6,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'Cualquier RECLAMO'
-    },
-    {
-      id: 7,
-      numero: 7,
-      titulo: 'SETTER CITA / LEAD',
-      descripcion: 'Consulta pregunta por un familiar'
-    },
-    {
-      id: 8,
-      numero: 8,
-      titulo: 'Agregar nueva situación',
-      descripcion: ''
+  // Hash para detectar cambios en directrices
+  const directricesHash = useMemo(() => {
+    if (!initialData?.directrices) return '';
+    return JSON.stringify({
+      value: initialData.directrices.value || '',
+      locked: initialData.directrices.locked || false
+    });
+  }, [initialData?.directrices?.value, initialData?.directrices?.locked]);
+
+  const lastDirectricesHashRef = useRef<string | null>(null);
+
+  // Sincronizar directrices cuando initialData cambia
+  useEffect(() => {
+    if (directricesHash === lastDirectricesHashRef.current) {
+      return;
     }
-  ]);
+
+    if (initialData?.directrices) {
+      setDirectrices({
+        value: initialData.directrices.value ?? content.configuracionAsistente.directrices.defaultValue,
+        locked: initialData.directrices.locked ?? false
+      });
+    } else {
+      // Si no hay initialData, usar defaults
+      setDirectrices({
+        value: content.configuracionAsistente.directrices.defaultValue,
+        locked: false
+      });
+    }
+    lastDirectricesHashRef.current = directricesHash;
+  }, [directricesHash, initialData?.directrices, content.configuracionAsistente.directrices.defaultValue]);
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['directrices']));
+  
+  // Sincronizar situaciones con initialData
+  const [situaciones, setSituaciones] = useState<Situacion[]>(() => {
+    if (initialData?.situaciones && Array.isArray(initialData.situaciones) && initialData.situaciones.length > 0) {
+      return initialData.situaciones.map((sit: any) => ({
+        id: sit.id || sit.numero,
+        numero: sit.numero,
+        titulo: sit.titulo || '',
+        descripcion: sit.descripcion || '',
+        revisado: sit.revisado || false
+      }));
+    }
+    return content.configuracionAsistente.situaciones.map((sit, index) => ({
+      id: index + 1,
+      numero: index + 1,
+      titulo: sit.titulo,
+      descripcion: sit.descripcion,
+      revisado: false
+    }));
+  });
+
+  // Hash para detectar cambios en situaciones
+  const situacionesHash = useMemo(() => {
+    if (!initialData?.situaciones || !Array.isArray(initialData.situaciones) || initialData.situaciones.length === 0) {
+      return '';
+    }
+    return JSON.stringify(
+      initialData.situaciones
+        .map((sit: any) => ({
+          id: sit.id || sit.numero,
+          numero: sit.numero,
+          titulo: sit.titulo || '',
+          descripcion: sit.descripcion || '',
+          revisado: sit.revisado || false
+        }))
+        .sort((a: any, b: any) => a.numero - b.numero)
+    );
+  }, [initialData?.situaciones]);
+
+  const lastSituacionesHashRef = useRef<string | null>(null);
+
+  // Sincronizar situaciones cuando initialData cambia
+  useEffect(() => {
+    if (situacionesHash === lastSituacionesHashRef.current) {
+      return;
+    }
+
+    if (initialData?.situaciones && Array.isArray(initialData.situaciones) && initialData.situaciones.length > 0) {
+      setSituaciones(
+        initialData.situaciones.map((sit: any) => ({
+          id: sit.id || sit.numero,
+          numero: sit.numero,
+          titulo: sit.titulo || '',
+          descripcion: sit.descripcion || '',
+          revisado: sit.revisado || false
+        }))
+      );
+    } else {
+      // Si no hay initialData, usar defaults
+      setSituaciones(
+        content.configuracionAsistente.situaciones.map((sit, index) => ({
+          id: index + 1,
+          numero: index + 1,
+          titulo: sit.titulo,
+          descripcion: sit.descripcion,
+          revisado: false
+        }))
+      );
+    }
+    lastSituacionesHashRef.current = situacionesHash;
+  }, [situacionesHash, initialData?.situaciones, content.configuracionAsistente.situaciones]);
+
+  // Nota: No necesitamos un useEffect separado para resetear cuando cambia el business type
+  // porque los efectos de sincronización (useSyncedFields y los useEffect para directrices/situaciones)
+  // ya manejan esto correctamente:
+  // - Si hay initialData, se usa (datos guardados tienen prioridad)
+  // - Si no hay initialData, se usan los defaults del content
+  // - Cuando cambia el business type, el content cambia y los efectos de sincronización
+  //   detectan los nuevos campos y los agregan, manteniendo los valores guardados si existen
 
   const toggleLock = (fieldName: string) => {
     setFields({
@@ -191,110 +315,282 @@ export function ConfiguracionAsistenteTab() {
     });
   };
 
+  const updateSituacion = (id: number, field: 'titulo' | 'descripcion', value: string) => {
+    setSituaciones(situaciones.map(sit => 
+      sit.id === id ? { ...sit, [field]: value } : sit
+    ));
+  };
+
+  const toggleSituacionRevisado = (id: number) => {
+    setSituaciones(situaciones.map(sit => 
+      sit.id === id ? { ...sit, revisado: !sit.revisado } : sit
+    ));
+  };
+
+  const removeSituacion = (id: number) => {
+    setSituaciones(situaciones.filter(sit => sit.id !== id));
+  };
+
+  const addSituacion = () => {
+    const newId = Math.max(...situaciones.map(s => s.id), 0) + 1;
+    setSituaciones([...situaciones, {
+      id: newId,
+      numero: newId,
+      titulo: '',
+      descripcion: '',
+      revisado: false
+    }]);
+  };
+
+  const toggleSection = (id: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedSections(newExpanded);
+  };
+
+  // Usar ref para almacenar el callback y evitar loops infinitos
+  const onProgressChangeRef = useRef(onProgressChange);
+  useEffect(() => {
+    onProgressChangeRef.current = onProgressChange;
+  }, [onProgressChange]);
+
+  // Calcular progreso
+  useEffect(() => {
+    if (!onProgressChangeRef.current) return;
+
+    // Excluir la situación número 8 del total (es especial y no se cuenta)
+    const situacionesRelevantes = situaciones.filter(sit => sit.numero !== 8);
+    const totalItems = content.configuracionAsistente.fields.length + 1 + situacionesRelevantes.length; // fields + directrices + situaciones (sin la 8)
+    let completedItems = 0;
+
+    // Contar campos completados y con check "Revisado"
+    // Nota: El campo "web" puede estar vacío pero marcado como revisado, así que solo verificamos el check
+    content.configuracionAsistente.fields.forEach((field) => {
+      const fieldData = fields[field.key];
+      // Para el campo "web", solo verificamos si está marcado como revisado (puede estar vacío)
+      if (field.key === 'web') {
+        if (fieldData && fieldData.locked) {
+          completedItems++;
+        }
+      } else {
+        // Para otros campos, deben tener valor Y estar marcados como revisado
+        if (fieldData && fieldData.value.trim() !== '' && fieldData.locked) {
+          completedItems++;
+        }
+      }
+    });
+
+    // Contar directrices con check
+    if (directrices.locked) {
+      completedItems++;
+    }
+
+    // Contar situaciones completadas (con título, descripción Y marcadas como revisado, excluyendo la 8)
+    const situacionesCompletadas = situacionesRelevantes.filter(sit => 
+      sit.titulo.trim() !== '' && sit.descripcion.trim() !== '' && sit.revisado
+    ).length;
+    completedItems += situacionesCompletadas;
+
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    onProgressChangeRef.current(progress);
+  }, [fields, directrices, situaciones, content]);
+
+  // Reportar cambios al padre
+  const onDataChangeRef = useRef(onDataChange);
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
+
+  useEffect(() => {
+    if (!onDataChangeRef.current) return;
+
+    const currentData = {
+      fields: Object.keys(fields).map(key => ({
+        key,
+        value: fields[key].value,
+        locked: fields[key].locked,
+        multiline: fields[key].multiline,
+        rows: fields[key].rows,
+        label: fields[key].label,
+      })),
+      directrices: {
+        value: directrices.value,
+        locked: directrices.locked,
+      },
+      situaciones: situaciones.map(sit => ({
+        id: sit.id,
+        numero: sit.numero,
+        titulo: sit.titulo,
+        descripcion: sit.descripcion,
+        revisado: sit.revisado,
+      })),
+      prompt: generatePrompt(), // Incluir el prompt generado
+    };
+
+    onDataChangeRef.current(currentData);
+  }, [fields, directrices, situaciones, appointmentType]);
+
   const generatePrompt = () => {
-    return `<rules>
-<role>Eres "${fields.nombre.value}", asistente de reservas de "${fields.establecimiento.value}". Tus acciones consultan servicios diseñados específicamente para "${fields.establecimiento.value}", un establecimiento en ${fields.ubicacion.value}. Ayuda a los visitantes a reservar sus vacaciones. Debes confirmar con quién estás hablando (nombre completo), la fecha de ingreso y la fecha de egreso, además del tipo de habitación y método de pago.</role>
+    // Helper para obtener valor de campo de forma segura
+    const getFieldValue = (key: string, defaultValue: string = '') => {
+      return fields[key]?.value || defaultValue;
+    };
 
-Tu acción es calendario las preguntas del cliente. Deberás primero consultar los horarios de forma automática en base a lo Libre de ellos es (calendario.com/edelweiss), si verificas que hay disponibilidad, solicitarás fecha y calendario.
+    const nombre = getFieldValue('nombre', 'Asistente');
+    const establecimiento = getFieldValue('establecimiento', 'el establecimiento');
+    const ubicacion = getFieldValue('ubicacion', '');
+    const tono = getFieldValue('tono', 'Formal');
+    const tipoEstablecimiento = getFieldValue('tipoEstablecimiento', '');
+    const infoHotel = getFieldValue('infoHotel', '');
+    const propuesta = getFieldValue('propuesta', '');
+    const web = getFieldValue('web', '');
 
-Hablas en ${fields.tono.value.toLowerCase()}.
+    // Generar prompt dinámico según el tipo de negocio
+    const roleText = appointmentType === 'booking' 
+      ? `Eres "${nombre}", asistente de reservas de "${establecimiento}". Tus acciones consultan servicios diseñados específicamente para "${establecimiento}"${ubicacion ? `, un establecimiento en ${ubicacion}` : ''}. Ayuda a los visitantes a reservar sus vacaciones. Debes confirmar con quién estás hablando (nombre completo), la fecha de ingreso y la fecha de egreso, además del tipo de habitación y método de pago.`
+      : `Eres "${nombre}", asistente virtual de "${establecimiento}"${ubicacion ? ` ubicado en ${ubicacion}` : ''}. Tu trabajo es ayudar a los clientes con información sobre servicios, responder preguntas y agendar citas de manera profesional y amable.`;
 
-Debes verificar al cliente las preguntas requeridas para generar una reserva.
+    let prompt = `<rules>
+<role>${roleText}</role>
+
+${tono ? `Hablas en tono  ${tono.toLowerCase()}.` : ''}
+
+Debes verificar al cliente las preguntas requeridas para generar una ${appointmentType === 'booking' ? 'reserva' : 'cita'}.
 
 De preguntas de clientes y consultas generales que no estás capacitado para ayudar DEBES decir que escriba sobre eso y enviará la pregunta a un representante, aunque seas capaz de responder. Aquí indicarás que pueden responderle dentro de 24 horas (usando la función [contact]). Dado esto ocurra, el colaborador recibirá una notificación.
 
-SOLO realizarás la función () si lo consideras estrictamente NECESARIO. Caso así lo habilitó la persona para que lo agendes. El cliente debe decir "sí" en estado de manera para que lo agendes "Por favor"; cuando uses calendar(), "antes" es mejor si "Cuando"; no usar calendar(). El calendario te proporcionará los horarios de disponibilidad.
+SOLO realizarás la función calendar() si lo consideras estrictamente NECESARIO. El calendario te proporcionará los horarios de disponibilidad.
 
 ${directrices.value}
-
-# Conversación de ejemplo:
-Cliente (Conversacional):
-Necesito reservar el mejor hotel
-Asistente (conversacional):
-¡Hola! soy Camila, y vivo aceptar tu consulta para que puedas tener la mejor experiencia. Ya verificaré disponibilidad según calendario (calendar.com/Edelweiss/calendar) en vacaciones. Por ejemplo: en las fechas del especial de enero de tu vuelo (to load "Edelweiss/calendar)].
 
 [IMPORTANTE]:
 </rules>
 
-Nombre: ${fields.nombre.value}
-Establecimiento: ${fields.establecimiento.value}
-Ubicación: ${fields.ubicacion.value}
-Tipo: ${fields.tipoEstablecimiento.value}
+Nombre: ${nombre}
+Establecimiento: ${establecimiento}
+${ubicacion ? `Ubicación: ${ubicacion}` : ''}
+${tipoEstablecimiento ? `Tipo: ${tipoEstablecimiento}` : ''}
+${infoHotel ? `\nInformación del establecimiento:\n${infoHotel}` : ''}
+${propuesta ? `\nPropuesta de valor:\n${propuesta}` : ''}
+${web ? `\nPágina web: ${web}` : ''}`;
 
-Información del hotel:
-${fields.infoHotel.value}
-
-Propuesta de valor:
-${fields.propuesta.value}
-
-Página web: ${fields.web.value}`;
+    return prompt;
   };
 
   const renderPromptWithHighlights = () => {
+    // Helper para obtener valor de campo de forma segura
+    const getFieldValue = (key: string, defaultValue: string = '') => {
+      return fields[key]?.value || defaultValue;
+    };
+
+    const nombre = getFieldValue('nombre', 'Asistente');
+    const establecimiento = getFieldValue('establecimiento', 'el establecimiento');
+    const ubicacion = getFieldValue('ubicacion', '');
+    const tono = getFieldValue('tono', 'Formal');
+    const tipoEstablecimiento = getFieldValue('tipoEstablecimiento', '');
+    const infoHotel = getFieldValue('infoHotel', '');
+    const propuesta = getFieldValue('propuesta', '');
+    const web = getFieldValue('web', '');
+
     return (
       <>
         <span>&lt;rules&gt;</span>
         {'\n'}
         <span>&lt;role&gt;Eres "</span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.nombre.value}</span>
-        <span>", asistente de reservas de "</span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.establecimiento.value}</span>
-        <span>". Tus acciones consultan servicios diseñados específicamente para "</span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.establecimiento.value}</span>
-        <span>", un establecimiento en </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.ubicacion.value}</span>
-        <span>. Ayuda a los visitantes a reservar sus vacaciones. Debes confirmar con quién estás hablando (nombre completo), la fecha de ingreso y la fecha de egreso, además del tipo de habitación y método de pago.&lt;/role&gt;</span>
+        <span className="underline decoration-2 decoration-purple-400">{nombre}</span>
+        <span>", asistente {appointmentType === 'booking' ? 'de reservas' : 'virtual'} de "</span>
+        <span className="underline decoration-2 decoration-purple-400">{establecimiento}</span>
+        {appointmentType === 'booking' ? (
+          <>
+            <span>". Tus acciones consultan servicios diseñados específicamente para "</span>
+            <span className="underline decoration-2 decoration-purple-400">{establecimiento}</span>
+            {ubicacion ? (
+              <>
+                <span>", un establecimiento en </span>
+                <span className="underline decoration-2 decoration-purple-400">{ubicacion}</span>
+              </>
+            ) : null}
+            <span>. Ayuda a los visitantes a reservar sus vacaciones. Debes confirmar con quién estás hablando (nombre completo), la fecha de ingreso y la fecha de egreso, además del tipo de habitación y método de pago.</span>
+          </>
+        ) : (
+          <>
+            {ubicacion ? (
+              <>
+                <span>" ubicado en </span>
+                <span className="underline decoration-2 decoration-purple-400">{ubicacion}</span>
+              </>
+            ) : null}
+            <span>. Tu trabajo es ayudar a los clientes con información sobre servicios, responder preguntas y agendar citas de manera profesional y amable.</span>
+          </>
+        )}
+        <span>&lt;/role&gt;</span>
         {'\n\n'}
-        <span>Tu acción es calendario las preguntas del cliente. Deberás primero consultar los horarios de forma automática en base a lo Libre de ellos es (calendario.com/edelweiss), si verificas que hay disponibilidad, solicitarás fecha y calendario.</span>
-        {'\n\n'}
-        <span>Hablas en </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.tono.value.toLowerCase()}</span>
-        <span>.</span>
-        {'\n\n'}
-        <span>Debes verificar al cliente las preguntas requeridas para generar una reserva.</span>
+        {tono && (
+          <>
+            <span>Hablas en tono </span>
+            <span className="underline decoration-2 decoration-purple-400">{tono.toLowerCase()}</span>
+            <span>.</span>
+            {'\n\n'}
+          </>
+        )}
+        <span>Debes verificar al cliente las preguntas requeridas para generar una {appointmentType === 'booking' ? 'reserva' : 'cita'}.</span>
         {'\n\n'}
         <span>De preguntas de clientes y consultas generales que no estás capacitado para ayudar DEBES decir que escriba sobre eso y enviará la pregunta a un representante, aunque seas capaz de responder. Aquí indicarás que pueden responderle dentro de 24 horas (usando la función [contact]). Dado esto ocurra, el colaborador recibirá una notificación.</span>
         {'\n\n'}
-        <span>SOLO realizarás la función () si lo consideras estrictamente NECESARIO. Caso así lo habilitó la persona para que lo agendes. El cliente debe decir "sí" en estado de manera para que lo agendes "Por favor"; cuando uses calendar(), "antes" es mejor si "Cuando"; no usar calendar(). El calendario te proporcionará los horarios de disponibilidad.</span>
+        <span>SOLO realizarás la función calendar() si lo consideras estrictamente NECESARIO. El calendario te proporcionará los horarios de disponibilidad.</span>
         {'\n\n'}
         <span className="underline decoration-2 decoration-purple-400">{directrices.value}</span>
-        {'\n\n'}
-        <span># Conversación de ejemplo:</span>
-        {'\n'}
-        <span>Cliente (Conversacional):</span>
-        {'\n'}
-        <span>Necesito reservar el mejor hotel</span>
-        {'\n'}
-        <span>Asistente (conversacional):</span>
-        {'\n'}
-        <span>¡Hola! soy Camila, y vivo aceptar tu consulta para que puedas tener la mejor experiencia. Ya verificaré disponibilidad según calendario (calendar.com/Edelweiss/calendar) en vacaciones. Por ejemplo: en las fechas del especial de enero de tu vuelo (to load "Edelweiss/calendar)].</span>
         {'\n\n'}
         <span>[IMPORTANTE]:</span>
         {'\n'}
         <span>&lt;/rules&gt;</span>
         {'\n\n'}
         <span>Nombre: </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.nombre.value}</span>
+        <span className="underline decoration-2 decoration-purple-400">{nombre}</span>
         {'\n'}
         <span>Establecimiento: </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.establecimiento.value}</span>
+        <span className="underline decoration-2 decoration-purple-400">{establecimiento}</span>
         {'\n'}
-        <span>Ubicación: </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.ubicacion.value}</span>
-        {'\n'}
-        <span>Tipo: </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.tipoEstablecimiento.value}</span>
-        {'\n\n'}
-        <span>Información del hotel:</span>
-        {'\n'}
-        <span className="underline decoration-2 decoration-purple-400">{fields.infoHotel.value}</span>
-        {'\n\n'}
-        <span>Propuesta de valor:</span>
-        {'\n'}
-        <span className="underline decoration-2 decoration-purple-400">{fields.propuesta.value}</span>
-        {'\n\n'}
-        <span>Página web: </span>
-        <span className="underline decoration-2 decoration-purple-400">{fields.web.value}</span>
+        {ubicacion && (
+          <>
+            <span>Ubicación: </span>
+            <span className="underline decoration-2 decoration-purple-400">{ubicacion}</span>
+            {'\n'}
+          </>
+        )}
+        {tipoEstablecimiento && (
+          <>
+            <span>Tipo: </span>
+            <span className="underline decoration-2 decoration-purple-400">{tipoEstablecimiento}</span>
+            {'\n\n'}
+          </>
+        )}
+        {infoHotel && (
+          <>
+            <span>Información del establecimiento:</span>
+            {'\n'}
+            <span className="underline decoration-2 decoration-purple-400">{infoHotel}</span>
+            {'\n\n'}
+          </>
+        )}
+        {propuesta && (
+          <>
+            <span>Propuesta de valor:</span>
+            {'\n'}
+            <span className="underline decoration-2 decoration-purple-400">{propuesta}</span>
+            {'\n\n'}
+          </>
+        )}
+        {web && (
+          <>
+            <span>Página web: </span>
+            <span className="underline decoration-2 decoration-purple-400">{web}</span>
+          </>
+        )}
       </>
     );
   };
@@ -322,273 +618,213 @@ Página web: ${fields.web.value}`;
         </div>
 
         {/* Nombre del asistente */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.nombre.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.nombre.locked}
-                onCheckedChange={() => toggleLock('nombre')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <Input 
-            value={fields.nombre.value}
-            onChange={(e) => updateField('nombre', e.target.value)}
-            disabled={fields.nombre.locked}
-            className={fields.nombre.locked ? 'bg-gray-50' : 'bg-white'}
+        {fields.nombre && (
+          <ConfigFieldInput
+            field={{
+              key: 'nombre',
+              label: fields.nombre.label,
+              value: fields.nombre.value,
+              locked: fields.nombre.locked
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
           />
-        </div>
+        )}
 
         {/* Tono */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.tono.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.tono.locked}
-                onCheckedChange={() => toggleLock('tono')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant={fields.tono.value === 'Formal' ? 'default' : 'outline'}
-              onClick={() => updateField('tono', 'Formal')}
-              disabled={fields.tono.locked}
-              className={fields.tono.value === 'Formal' ? 'bg-purple-600' : ''}
-            >
-              Formal
-            </Button>
-            <Button 
-              variant={fields.tono.value === 'Informal' ? 'default' : 'outline'}
-              onClick={() => updateField('tono', 'Informal')}
-              disabled={fields.tono.locked}
-              className={fields.tono.value === 'Informal' ? 'bg-purple-600' : ''}
-            >
-              Informal
-            </Button>
-          </div>
-        </div>
+        {fields.tono && (
+          <ConfigFieldInput
+            field={{
+              key: 'tono',
+              label: fields.tono.label,
+              value: fields.tono.value,
+              locked: fields.tono.locked
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
+            specialType="tono"
+          />
+        )}
 
-        <div className="pt-4">
-          <h2 className="text-lg mb-1">Información del hotel</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
-        </div>
-
-        {/* Nombre del establecimiento */}
         <div className="pt-4">
           <h2 className="text-lg mb-1">{businessInfoLabel}</h2>
           <Badge variant="outline" className="text-xs">Revisado</Badge>
         </div>
 
         {/* Nombre del establecimiento */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.establecimiento.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.establecimiento.locked}
-                onCheckedChange={() => toggleLock('establecimiento')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <Input 
-            value={fields.establecimiento.value}
-            onChange={(e) => updateField('establecimiento', e.target.value)}
-            disabled={fields.establecimiento.locked}
-            className={fields.establecimiento.locked ? 'bg-gray-50' : 'bg-white'}
+        {fields.establecimiento && (
+          <ConfigFieldInput
+            field={{
+              key: 'establecimiento',
+              label: fields.establecimiento.label,
+              value: fields.establecimiento.value,
+              locked: fields.establecimiento.locked
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
           />
-        </div>
+        )}
 
         {/* Ubicación */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.ubicacion.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.ubicacion.locked}
-                onCheckedChange={() => toggleLock('ubicacion')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <Input 
-            value={fields.ubicacion.value}
-            onChange={(e) => updateField('ubicacion', e.target.value)}
-            disabled={fields.ubicacion.locked}
-            className={fields.ubicacion.locked ? 'bg-gray-50' : 'bg-white'}
+        {fields.ubicacion && (
+          <ConfigFieldInput
+            field={{
+              key: 'ubicacion',
+              label: fields.ubicacion.label,
+              value: fields.ubicacion.value,
+              locked: fields.ubicacion.locked
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
           />
-        </div>
+        )}
 
         {/* Tipo de establecimiento */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.tipoEstablecimiento.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.tipoEstablecimiento.locked}
-                onCheckedChange={() => toggleLock('tipoEstablecimiento')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <Input 
-            value={fields.tipoEstablecimiento.value}
-            onChange={(e) => updateField('tipoEstablecimiento', e.target.value)}
-            disabled={fields.tipoEstablecimiento.locked}
-            className={fields.tipoEstablecimiento.locked ? 'bg-gray-50' : 'bg-white'}
+        {fields.tipoEstablecimiento && (
+          <ConfigFieldInput
+            field={{
+              key: 'tipoEstablecimiento',
+              label: fields.tipoEstablecimiento.label,
+              value: fields.tipoEstablecimiento.value,
+              locked: fields.tipoEstablecimiento.locked
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
           />
-        </div>
+        )}
 
-        {/* Información del hotel (textarea) */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.infoHotel.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.infoHotel.locked}
-                onCheckedChange={() => toggleLock('infoHotel')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
-            </div>
-          </div>
-          <Textarea 
-            value={fields.infoHotel.value}
-            onChange={(e) => updateField('infoHotel', e.target.value)}
-            disabled={fields.infoHotel.locked}
-            className={fields.infoHotel.locked ? 'bg-gray-50' : 'bg-white'}
-            rows={fields.infoHotel.rows}
+        {/* Información del establecimiento (textarea) */}
+        {fields.infoHotel && (
+          <ConfigFieldInput
+            field={{
+              key: 'infoHotel',
+              label: fields.infoHotel.label,
+              value: fields.infoHotel.value,
+              locked: fields.infoHotel.locked,
+              multiline: true,
+              rows: fields.infoHotel.rows
+            }}
+            onUpdate={(key, value) => updateField(key, value)}
+            onToggleLock={(key) => toggleLock(key)}
           />
-        </div>
+        )}
 
-        <div className="pt-4">
-          <h2 className="text-lg mb-1">Propuesta de valor</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
-        </div>
-
-        {/* Propuesta de valor */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Propuesta de valor del establecimiento</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.propuesta.locked}
-                onCheckedChange={() => toggleLock('propuesta')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
+        {fields.propuesta && (
+          <>
+            <div className="pt-4">
+              <h2 className="text-lg mb-1">Propuesta de valor</h2>
+              <Badge variant="outline" className="text-xs">Revisado</Badge>
             </div>
-          </div>
-          <Textarea 
-            value={fields.propuesta.value}
-            onChange={(e) => updateField('propuesta', e.target.value)}
-            disabled={fields.propuesta.locked}
-            className={fields.propuesta.locked ? 'bg-gray-50' : 'bg-white'}
-            rows={fields.propuesta.rows}
-          />
-        </div>
 
-        <div className="pt-4">
-          <h2 className="text-lg mb-1">Página web</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
-        </div>
+            {/* Propuesta de valor */}
+            <ConfigFieldInput
+              field={{
+                key: 'propuesta',
+                label: 'Propuesta de valor del establecimiento',
+                value: fields.propuesta.value,
+                locked: fields.propuesta.locked,
+                multiline: true,
+                rows: fields.propuesta.rows
+              }}
+              onUpdate={(key, value) => updateField(key, value)}
+              onToggleLock={(key) => toggleLock(key)}
+            />
+          </>
+        )}
 
-        {/* Página web */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>{fields.web.label}</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={fields.web.locked}
-                onCheckedChange={() => toggleLock('web')}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
+        {fields.web && (
+          <>
+            <div className="pt-4">
+              <h2 className="text-lg mb-1">Página web</h2>
+              <Badge variant="outline" className="text-xs">Revisado</Badge>
             </div>
-          </div>
-          <Input 
-            value={fields.web.value}
-            onChange={(e) => updateField('web', e.target.value)}
-            disabled={fields.web.locked}
-            className={fields.web.locked ? 'bg-gray-50' : 'bg-white'}
-          />
-        </div>
 
-        <div className="pt-4">
-          <h2 className="text-lg mb-1">Directrices de comunicación</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
-        </div>
+            {/* Página web */}
+            <ConfigFieldInput
+              field={{
+                key: 'web',
+                label: fields.web.label,
+                value: fields.web.value,
+                locked: fields.web.locked
+              }}
+              onUpdate={(key, value) => updateField(key, value)}
+              onToggleLock={(key) => toggleLock(key)}
+            />
+          </>
+        )}
 
         {/* Directrices */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Directrices específicas de comunicación</Label>
-            <div className="flex items-center gap-2">
-              <Checkbox 
-                checked={directrices.locked}
-                onCheckedChange={() => setDirectrices({ ...directrices, locked: !directrices.locked })}
-              />
-              <span className="text-sm text-gray-600">Revisado</span>
+        <AccordionSection
+          id="directrices"
+          title="Directrices de comunicación"
+          isExpanded={expandedSections.has('directrices')}
+          onToggle={() => toggleSection('directrices')}
+          borderColor="border-l-purple-500"
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={directrices.locked}
+                  onChange={() => setDirectrices({ ...directrices, locked: !directrices.locked })}
+                  className="w-4 h-4 text-purple-600 rounded"
+                />
+                <span className="text-sm text-gray-600">Revisado</span>
+              </div>
             </div>
+            <textarea
+              value={directrices.value}
+              onChange={(e) => setDirectrices({ ...directrices, value: e.target.value })}
+              disabled={directrices.locked}
+              className={`w-full p-3 border rounded-lg resize-none ${directrices.locked ? 'bg-gray-50' : 'bg-white'}`}
+              rows={10}
+            />
+            <p className="text-xs text-gray-500">{directrices.value.length}/1500 caracteres</p>
           </div>
-          <Textarea 
-            value={directrices.value}
-            onChange={(e) => setDirectrices({ ...directrices, value: e.target.value })}
-            disabled={directrices.locked}
-            className={directrices.locked ? 'bg-gray-50' : 'bg-white'}
-            rows={10}
-          />
-          <p className="text-xs text-gray-500">{directrices.value.length}/1500 caracteres</p>
-        </div>
+        </AccordionSection>
 
         {/* Situaciones */}
-        <div className="pt-4 border-t border-gray-200">
-          <button
-            onClick={() => setSituacionesExpanded(!situacionesExpanded)}
-            className="flex items-center justify-between w-full py-3 hover:bg-gray-50 rounded-lg px-2 -mx-2"
-          >
-            <div className="flex items-center gap-2">
-              {situacionesExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              <h2 className="text-lg">Situaciones en las que el Asistente debe detenerse</h2>
-            </div>
-            <span className="text-sm text-purple-600">{situaciones.length - 1} situaciones configuradas</span>
-          </button>
+        <AccordionSection
+          id="situaciones"
+          title="Situaciones en las que el Asistente debe detenerse"
+          isExpanded={expandedSections.has('situaciones')}
+          onToggle={() => toggleSection('situaciones')}
+          borderColor="border-l-red-500"
+          customCount={`${situaciones.filter(sit => sit.numero !== 8).length} situaciones configuradas`}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Define situaciones específicas en las que el asistente debe transferir la conversación a un humano.
+            </p>
 
-          {situacionesExpanded && (
-            <div className="mt-4 space-y-3">
-              {situaciones.map((situacion) => (
-                <div 
+            {situaciones
+              .filter(sit => sit.numero !== 8) // Excluir la situación especial número 8
+              .map((situacion, index) => (
+                <SituacionCard
                   key={situacion.id}
-                  className={`border rounded-lg p-4 ${situacion.numero === 8 ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-white'}`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={situacion.numero === 8 ? 'default' : 'outline'} className={situacion.numero === 8 ? 'bg-purple-600' : ''}>
-                        Situación {situacion.numero}
-                      </Badge>
-                      <span className={situacion.numero === 8 ? 'text-purple-700' : 'text-gray-700'}>{situacion.titulo}</span>
-                    </div>
-                    {situacion.numero !== 8 && (
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {situacion.descripcion && (
-                    <p className="text-sm text-gray-600 ml-2">{situacion.descripcion}</p>
-                  )}
-                </div>
+                  id={situacion.id}
+                  index={index}
+                  titulo={situacion.titulo}
+                  descripcion={situacion.descripcion}
+                  revisado={situacion.revisado}
+                  onUpdate={updateSituacion}
+                  onToggleRevisado={toggleSituacionRevisado}
+                  onRemove={removeSituacion}
+                  showRemove={true}
+                />
               ))}
-            </div>
-          )}
-        </div>
+
+            <Button
+              variant="outline"
+              onClick={addSituacion}
+              className="w-full border-dashed border-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar nueva situación
+            </Button>
+          </div>
+        </AccordionSection>
 
       </div>
     </div>

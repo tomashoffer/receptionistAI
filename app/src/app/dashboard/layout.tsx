@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { Menu } from 'lucide-react';
 import { LayoutProvider } from '@/contexts/LayoutContext';
+import { Toaster } from '@/components/ui/sonner';
 
 export default function DashboardLayout({
   children,
@@ -29,19 +30,39 @@ export default function DashboardLayout({
         });
         
         if (!response.ok) {
-          router.push('/login');
+          // Si la respuesta no es ok, redirigir a login solo si no hay usuario en el store
+          if (!user) {
+            router.push('/login');
+          }
           return;
+        }
+        
+        // Si la respuesta es ok, obtener los datos del usuario
+        const data = await response.json();
+        if (data && !user) {
+          // Solo actualizar si no hay usuario en el store
+          const { setUser } = useUserStore.getState();
+          setUser(data);
         }
       } catch (error) {
         console.error('Error checking auth:', error);
-        router.push('/login');
+        // Solo redirigir si no hay usuario en el store
+        if (!user) {
+          router.push('/login');
+        }
       } finally {
         setIsChecking(false);
       }
     };
 
+    // Si ya hay usuario en el store, no verificar
+    if (user) {
+      setIsChecking(false);
+      return;
+    }
+
     checkAuth();
-  }, [router]);
+  }, [router, user]);
 
   if (isChecking) {
     return (
@@ -85,6 +106,7 @@ export default function DashboardLayout({
           </main>
         </LayoutProvider>
       </div>
+      <Toaster />
     </>
   );
 }

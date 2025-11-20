@@ -23,8 +23,11 @@ export function Metrics() {
     <section className="py-24 px-4 bg-gradient-to-br from-indigo-50 to-emerald-50">
       <div className="container mx-auto max-w-7xl">
         <div className="text-center mb-16">
-          <h2 className="text-4xl lg:text-5xl text-gray-900 mb-4">
-            Resultados que{" "}
+          <h2 
+            className="text-4xl lg:text-5xl text-gray-900 mb-4"
+            style={{ color: 'var(--foreground)' }}
+          >
+            <span className="dark-mode-black-text">Resultados que</span>{" "}
             <span className="bg-gradient-to-r from-indigo-600 to-emerald-600 bg-clip-text text-transparent">
               impulsan tu negocio
             </span>

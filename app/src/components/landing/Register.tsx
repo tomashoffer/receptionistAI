@@ -4,10 +4,26 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Bot, Mail, Lock, User, Chrome, Building, Phone } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Bot, Mail, Lock, User, Chrome, Building, Phone, Briefcase } from "lucide-react";
 import { apiService } from "@/services/api.service";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@/stores/userStore";
+
+const industries = [
+  { value: 'medical_clinic', label: 'Salud' },
+  { value: 'beauty_salon', label: 'Belleza' },
+  { value: 'restaurant', label: 'Gastronomía' },
+  { value: 'fitness_center', label: 'Fitness' },
+  { value: 'hair_salon', label: 'Peluquería' },
+  { value: 'dental_clinic', label: 'Clínica Dental' },
+  { value: 'law_firm', label: 'Legal' },
+  { value: 'automotive', label: 'Automotriz' },
+  { value: 'real_estate', label: 'Inmobiliaria' },
+  { value: 'hotel', label: 'Hotel' },
+  { value: 'consulting', label: 'Consultoría' },
+  { value: 'other', label: 'Otro' }
+];
 
 interface RegisterProps {
   onNavigate?: (page: string) => void;
@@ -25,7 +41,9 @@ export function Register({ onNavigate }: RegisterProps) {
     email: "",
     password: "",
     confirmPassword: "",
+    industry: "",
   });
+  const [industryPlaceholder, setIndustryPlaceholder] = useState("Selecciona el rubro de tu negocio");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +52,18 @@ export function Register({ onNavigate }: RegisterProps) {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleIndustryChange = (value: string) => {
+    setFormData({
+      ...formData,
+      industry: value,
+    });
+    // Actualizar placeholder cuando se selecciona un valor
+    const selectedIndustry = industries.find(ind => ind.value === value);
+    if (selectedIndustry) {
+      setIndustryPlaceholder(selectedIndustry.label);
+    }
   };
 
   const loadBusinesses = async () => {
@@ -74,7 +104,7 @@ export function Register({ onNavigate }: RegisterProps) {
         last_name: rest.join(" ") || " ",
         business_name: formData.company || "Mi Negocio",
         business_phone: formData.phone || "0000000000",
-        industry: "other",
+        industry: formData.industry || "other",
       };
 
       await apiService.register(payload);
@@ -85,7 +115,10 @@ export function Register({ onNavigate }: RegisterProps) {
       await loadBusinesses();
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err?.message || "Error al crear la cuenta. Intenta nuevamente.");
+      // Mostrar mensaje de error más específico
+      const errorMessage = err?.message || "Error al crear la cuenta. Intenta nuevamente.";
+      setError(errorMessage);
+      console.error('Error en registro:', err);
     } finally {
       setIsLoading(false);
     }
@@ -99,11 +132,11 @@ export function Register({ onNavigate }: RegisterProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-emerald-50 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4 py-12">
       {/* Background effects */}
       <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-20 left-20 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 left-20 w-96 h-96 bg-indigo-500/20 dark:bg-indigo-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -116,19 +149,20 @@ export function Register({ onNavigate }: RegisterProps) {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-600 flex items-center justify-center shadow-lg">
               <Bot className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl text-gray-900">ReceptionistAI</span>
+            <span className="text-2xl dark:text-gray-100" style={{ color: 'var(--foreground)' }}>ReceptionistAI</span>
           </div>
-          <h1 className="text-3xl text-gray-900 mb-2">Crea tu cuenta</h1>
-          <p className="text-gray-700">Comienza tu prueba gratuita hoy</p>
+          <h1 className="text-3xl dark:text-gray-100 mb-2" style={{ color: 'var(--foreground)' }}>Crea tu cuenta</h1>
+          <p className="dark:text-gray-300" style={{ color: 'var(--foreground)' }}>Comienza tu prueba gratuita hoy</p>
         </div>
 
         {/* Register Card */}
-        <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-xl">
+        <div className="dark:bg-gray-800 rounded-2xl p-8 border dark:border-gray-700 shadow-xl" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
           {/* Google Sign Up */}
           <Button
             type="button"
             variant="outline"
-            className="w-full mb-6 border-gray-200 hover:bg-gray-50"
+            className="w-full mb-6 dark:border-gray-700 dark:hover:bg-gray-700 dark:text-gray-100"
+            style={{ borderColor: 'var(--border)', color: 'var(--foreground)' }}
             size="lg"
             onClick={handleGoogleSignup}
             disabled={isLoading}
@@ -139,19 +173,19 @@ export function Register({ onNavigate }: RegisterProps) {
 
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
+              <div className="w-full border-t dark:border-gray-700" style={{ borderColor: 'var(--border)' }}></div>
             </div>
             <div className="relative flex justify-center">
-              <span className="px-4 bg-white text-gray-500">O regístrate con email</span>
+              <span className="px-4 dark:bg-gray-800 dark:text-gray-400" style={{ backgroundColor: 'var(--card)', color: 'var(--muted-foreground)' }}>O regístrate con email</span>
             </div>
           </div>
 
           {/* Registration Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo</Label>
+              <Label htmlFor="name" style={{ color: 'var(--foreground)' }}>Nombre completo</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="name"
                   name="name"
@@ -159,16 +193,17 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="Juan Pérez"
                   value={formData.name}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="company">Empresa</Label>
+              <Label htmlFor="company" style={{ color: 'var(--foreground)' }}>Empresa</Label>
               <div className="relative">
-                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="company"
                   name="company"
@@ -176,16 +211,17 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="Tu Empresa S.A."
                   value={formData.company}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono</Label>
+              <Label htmlFor="phone" style={{ color: 'var(--foreground)' }}>Teléfono</Label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="phone"
                   name="phone"
@@ -193,15 +229,39 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="+54 11 5555-5555"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="industry" style={{ color: 'var(--foreground)' }}>Rubro / Industria <span className="text-red-500">*</span></Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400 z-10 pointer-events-none" style={{ color: 'var(--muted-foreground)' }} />
+                <Select
+                  value={formData.industry || undefined}
+                  onValueChange={handleIndustryChange}
+                  required
+                >
+                  <SelectTrigger className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100 w-full" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: formData.industry ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
+                    <SelectValue placeholder={industryPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent className="dark:bg-gray-800 dark:border-gray-700" style={{ backgroundColor: 'var(--popover)', borderColor: 'var(--border)' }}>
+                    {industries.map((industry) => (
+                      <SelectItem key={industry.value} value={industry.value} className="dark:text-gray-100 dark:hover:bg-gray-700" style={{ color: 'var(--popover-foreground)' }}>
+                        {industry.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" style={{ color: 'var(--foreground)' }}>Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="email"
                   name="email"
@@ -209,16 +269,17 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="tu@email.com"
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password" style={{ color: 'var(--foreground)' }}>Contraseña</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="password"
                   name="password"
@@ -226,17 +287,18 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                   required
                 />
               </div>
-              <p className="text-gray-500">Mínimo 8 caracteres</p>
+              <p className="dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }}>Mínimo 8 caracteres</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+              <Label htmlFor="confirmPassword" style={{ color: 'var(--foreground)' }}>Confirmar contraseña</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 dark:text-gray-400" style={{ color: 'var(--muted-foreground)' }} />
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -244,14 +306,15 @@ export function Register({ onNavigate }: RegisterProps) {
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="pl-10 border-gray-200"
+                  className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
                   required
                 />
               </div>
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-2">
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-2">
                 {error}
               </p>
             )}
@@ -267,11 +330,12 @@ export function Register({ onNavigate }: RegisterProps) {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-gray-700">
+            <p className="dark:text-gray-300" style={{ color: 'var(--foreground)' }}>
               ¿Ya tienes una cuenta?{" "}
               <button
                 onClick={() => (onNavigate ? onNavigate("login") : router.push("/login"))}
-                className="text-indigo-600 hover:text-indigo-700"
+                className="dark:text-indigo-400 dark:hover:text-indigo-300 underline hover:no-underline cursor-pointer font-medium transition-colors"
+                style={{ color: 'var(--primary)' }}
                 type="button"
               >
                 Inicia sesión
@@ -280,13 +344,13 @@ export function Register({ onNavigate }: RegisterProps) {
           </div>
         </div>
 
-        <p className="text-center text-gray-500 mt-6">
+        <p className="text-center dark:text-gray-400 mt-6" style={{ color: 'var(--muted-foreground)' }}>
           Al registrarte, aceptas nuestros{" "}
-          <a href="#" className="text-indigo-600 hover:text-indigo-700">
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
             Términos de Servicio
           </a>{" "}
           y{" "}
-          <a href="#" className="text-indigo-600 hover:text-indigo-700">
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
             Política de Privacidad
           </a>
         </p>

@@ -1,3 +1,22 @@
+// Asegurar que crypto esté disponible globalmente ANTES de cualquier otra importación
+if (typeof globalThis.crypto === 'undefined') {
+  const crypto = require('crypto');
+  if (crypto.webcrypto) {
+    globalThis.crypto = crypto.webcrypto;
+  } else {
+    // Polyfill para crypto.randomUUID() si no está disponible
+    globalThis.crypto = {
+      ...crypto,
+      randomUUID: () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+    };
+  }
+}
 require('dotenv').config();
 import cookieParser from 'cookie-parser';
 const { NestFactory } = require('@nestjs/core');
@@ -50,6 +69,8 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   // Start the application.
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 3001;
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Backend escuchando en http://0.0.0.0:${port}`);
 }
 bootstrap();

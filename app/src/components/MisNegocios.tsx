@@ -1,21 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { 
   Plus, 
   Building2, 
   Phone, 
-  Mail, 
-  Globe, 
+  Mail,  
   MapPin, 
   Clock,
   MoreVertical,
@@ -23,9 +17,7 @@ import {
   Trash2,
   Settings,
   MessageSquare,
-  Menu,
   TrendingUp,
-  CheckCircle2,
   Pause,
   Play
 } from 'lucide-react';
@@ -41,22 +33,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
-import { useUserStore, type Business } from '../stores/userStore';
-import { useLayout } from '../contexts/LayoutContext';
+import { useUserStore, type Business, type BusinessStatus } from '../stores/userStore';
+import { BusinessDialog } from './shared/BusinessDialog';
 
 const industries = [
-  'Salud',
-  'Belleza',
-  'Gastronomía',
-  'Fitness',
-  'Educación',
-  'Legal',
-  'Automotriz',
-  'Inmobiliaria',
-  'Veterinaria',
-  'Spa & Wellness',
-  'Consultoría',
-  'Otro'
+  { value: 'medical_clinic', label: 'Salud' },
+  { value: 'beauty_salon', label: 'Belleza' },
+  { value: 'restaurant', label: 'Gastronomía' },
+  { value: 'fitness_center', label: 'Fitness' },
+  { value: 'hair_salon', label: 'Peluquería' },
+  { value: 'dental_clinic', label: 'Clínica Dental' },
+  { value: 'law_firm', label: 'Legal' },
+  { value: 'automotive', label: 'Automotriz' },
+  { value: 'real_estate', label: 'Inmobiliaria' },
+  { value: 'hotel', label: 'Hotel' },
+  { value: 'consulting', label: 'Consultoría' },
+  { value: 'other', label: 'Otro' }
 ];
 
 interface BusinessCardProps {
@@ -78,16 +70,20 @@ function BusinessCard({
 }: BusinessCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     active: 'bg-green-100 text-green-700',
     paused: 'bg-yellow-100 text-yellow-700',
-    inactive: 'bg-gray-100 text-gray-700'
+    inactive: 'bg-gray-100 text-gray-700',
+    suspended: 'bg-red-100 text-red-700',
+    trial: 'bg-blue-100 text-blue-700'
   };
 
-  const statusLabels = {
+  const statusLabels: Record<string, string> = {
     active: 'Activo',
     paused: 'Pausado',
-    inactive: 'Inactivo'
+    inactive: 'Inactivo',
+    suspended: 'Suspendido',
+    trial: 'Prueba'
   };
 
   return (
@@ -103,8 +99,8 @@ function BusinessCard({
               </Avatar>
               <div>
                 <CardTitle className="text-lg mb-1">{business.name}</CardTitle>
-                <Badge className={statusColors[business.status]}>
-                  {statusLabels[business.status]}
+                <Badge className={statusColors[business.status] || statusColors.inactive}>
+                  {statusLabels[business.status] || business.status}
                 </Badge>
               </div>
             </div>
@@ -146,28 +142,30 @@ function BusinessCard({
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Building2 className="w-4 h-4" />
-              <span>{business.industry}</span>
+              <span>{industries.find(i => i.value === business.industry)?.label || business.industry}</span>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Phone className="w-4 h-4" />
-              <span>{business.phone}</span>
+              <span>{business.phone_number || (business as any).phone}</span>
             </div>
-            {business.email && (
+            {(business as any).email && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Mail className="w-4 h-4" />
-                <span>{business.email}</span>
+                <span>{(business as any).email}</span>
               </div>
             )}
-            {business.address && (
+            {(business as any).address && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <MapPin className="w-4 h-4" />
-                <span>{business.address}</span>
+                <span>{(business as any).address}</span>
               </div>
             )}
-            {business.workingHours && (
+            {(business.workingHours || business.business_hours) && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Clock className="w-4 h-4" />
-                <span>{business.workingHours.start} - {business.workingHours.end}</span>
+                <span>
+                  {business.workingHours?.start || business.business_hours?.monday?.open || 'N/A'} - {business.workingHours?.end || business.business_hours?.monday?.close || 'N/A'}
+                </span>
               </div>
             )}
           </div>
@@ -230,216 +228,116 @@ function BusinessCard({
   );
 }
 
+
 function CreateBusinessDialog() {
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    website: '',
-    address: '',
-    description: '',
-    industry: '',
-    startHour: '09:00',
-    endHour: '18:00'
-  });
+  const { setBusinesses, setActiveBusiness } = useUserStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Creating business:', formData);
-    setOpen(false);
-    // Reset form
-    setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      website: '',
-      address: '',
-      description: '',
-      industry: '',
-      startHour: '09:00',
-      endHour: '18:00'
-    });
+  const loadBusinesses = async () => {
+    try {
+      const { apiService } = await import('../services/api.service');
+      const response = (await apiService.getBusinesses()) as any;
+      const list = Array.isArray(response) ? response : response ? [response] : [];
+      setBusinesses(list);
+      if (list.length > 0 && !useUserStore.getState().activeBusiness) {
+        setActiveBusiness(list[0]);
+      }
+    } catch (err) {
+      console.error('Error loading businesses:', err);
+    }
+  };
+
+  const handleSuccess = () => {
+    loadBusinesses();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="w-4 h-4 mr-2" />
-          Crear nuevo negocio
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Crear nuevo negocio</DialogTitle>
-          <DialogDescription>
-            Completa la información de tu negocio para configurar tu Recepcionista AI
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-6 pr-2">
-          {/* Información Básica */}
-          <div className="space-y-4">
-            <h3 className="text-sm uppercase text-gray-500 tracking-wider">Información Básica</h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Nombre del Negocio <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                placeholder="Ej: Clínica Dental Dr. García"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">
-                  Número de Teléfono <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+54 9 11 2345-6789"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="contacto@tunegocio.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="website">Sitio Web</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  placeholder="www.tunegocio.com"
-                  value={formData.website}
-                  onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="industry">
-                  Industria / Rubro <span className="text-red-500">*</span>
-                </Label>
-                <Select value={formData.industry} onValueChange={(value) => setFormData({ ...formData, industry: value })}>
-                  <SelectTrigger id="industry">
-                    <SelectValue placeholder="Selecciona un rubro" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {industries.map((industry) => (
-                      <SelectItem key={industry} value={industry}>
-                        {industry}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Dirección</Label>
-              <Input
-                id="address"
-                placeholder="Av. Corrientes 1234, CABA"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe brevemente tu negocio y los servicios que ofreces..."
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {/* Rango Horario */}
-          <div className="space-y-4">
-            <h3 className="text-sm uppercase text-gray-500 tracking-wider">Rango Horario</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startHour">Horario de Apertura</Label>
-                <Input
-                  id="startHour"
-                  type="time"
-                  value={formData.startHour}
-                  onChange={(e) => setFormData({ ...formData, startHour: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="endHour">Horario de Cierre</Label>
-                <Input
-                  id="endHour"
-                  type="time"
-                  value={formData.endHour}
-                  onChange={(e) => setFormData({ ...formData, endHour: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
-              Crear negocio
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setOpen(true)}>
+        <Plus className="w-4 h-4 mr-2" />
+        Crear nuevo negocio
+      </Button>
+      <BusinessDialog 
+        business={null} 
+        open={open} 
+        onOpenChange={setOpen} 
+        onSuccess={handleSuccess}
+      />
+    </>
   );
 }
 
 export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) => void }) {
   const { businesses, setBusinesses, activeBusiness, setActiveBusiness } = useUserStore();
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  const handleEdit = (business: Business) => {
-    setEditingBusiness(business);
-    // TODO: Open edit dialog
-    console.log('Edit business:', business.name);
-  };
-
-  const handleDelete = (business: Business) => {
-    setBusinesses(businesses.filter(b => b.id !== business.id));
-    if (activeBusiness?.id === business.id) {
-      setActiveBusiness(businesses.filter(b => b.id !== business.id)[0] || null);
+  const loadBusinesses = async () => {
+    try {
+      const { apiService } = await import('../services/api.service');
+      const response = (await apiService.getBusinesses()) as any;
+      const list = Array.isArray(response) ? response : response ? [response] : [];
+      setBusinesses(list);
+      if (list.length > 0 && !activeBusiness) {
+        setActiveBusiness(list[0]);
+      }
+    } catch (err) {
+      console.error('Error loading businesses:', err);
     }
   };
 
-  const handleToggleStatus = (business: Business) => {
-    setBusinesses(businesses.map(b => 
+  const handleEdit = (business: Business) => {
+    setEditingBusiness(business);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    loadBusinesses();
+    setEditDialogOpen(false);
+    setEditingBusiness(null);
+  };
+
+  const handleDelete = async (business: Business) => {
+    try {
+      const { apiService } = await import('../services/api.service');
+      await apiService.deleteBusiness(business.id);
+      
+      // Update local state
+      const updatedBusinesses = businesses.filter((b: Business) => b.id !== business.id);
+      setBusinesses(updatedBusinesses);
+      
+      // If deleted business was active, set a new one
+      if (activeBusiness?.id === business.id) {
+        setActiveBusiness(updatedBusinesses[0] || null);
+      }
+    } catch (error) {
+      console.error('Error deleting business:', error);
+      alert(error instanceof Error ? error.message : 'Error al eliminar el negocio');
+    }
+  };
+
+  const handleToggleStatus = async (business: Business) => {
+    try {
+      const { apiService } = await import('../services/api.service');
+      const newStatus = business.status === 'active' ? 'paused' : 'active';
+      
+      // TODO: Implementar endpoint para actualizar status en el backend
+      // await apiService.updateBusinessStatus(business.id, newStatus);
+      
+      // Update local state
+      setBusinesses(businesses.map((b: Business) => 
       b.id === business.id 
-        ? { ...b, status: b.status === 'active' ? 'paused' : 'active' as 'active' | 'paused' | 'inactive' }
+          ? { ...b, status: newStatus as Business['status'] }
         : b
     ));
+      
+      // Si es el business activo, actualizarlo también
+      if (activeBusiness?.id === business.id) {
+        setActiveBusiness({ ...activeBusiness, status: newStatus as Business['status'] });
+      }
+    } catch (error) {
+      console.error('Error toggling business status:', error);
+    }
   };
 
   const handleViewDashboard = (business: Business) => {
@@ -457,7 +355,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
   };
 
   return (
-    <div className="bg-gray-50 bg-gray-50">
+    <div className="bg-gray-50">
       <PageHeaderResponsive
         title="Mis Negocios"
         subtitle="Gestiona todos tus negocios y sus Recepcionistas AI desde un solo lugar"
@@ -484,7 +382,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
                 <div>
                   <p className="text-sm text-gray-500">Negocios Activos</p>
                   <p className="text-2xl mt-1">
-                    {businesses.filter(b => b.status === 'active').length}
+                    {businesses.filter((b: Business) => b.status === 'active').length}
                   </p>
                 </div>
                 <TrendingUp className="w-8 h-8 text-green-500" />
@@ -498,7 +396,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
                 <div>
                   <p className="text-sm text-gray-500">Conversaciones Totales</p>
                   <p className="text-2xl mt-1">
-                    {businesses.reduce((acc, b) => acc + (b.stats?.conversations || 0), 0)}
+                    {businesses.reduce((acc: number, b: Business) => acc + (b.stats?.conversations || 0), 0)}
                   </p>
                 </div>
                 <MessageSquare className="w-8 h-8 text-blue-500" />
@@ -512,7 +410,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
                 <div>
                   <p className="text-sm text-gray-500">Automatización Promedio</p>
                   <p className="text-2xl mt-1">
-                    {businesses.length > 0 ? Math.round(businesses.reduce((acc, b) => acc + (b.stats?.automation || 0), 0) / businesses.length) : 0}%
+                    {businesses.length > 0 ? Math.round(businesses.reduce((acc: number, b: Business) => acc + (b.stats?.automation || 0), 0) / businesses.length) : 0}%
                   </p>
                 </div>
                 <Settings className="w-8 h-8 text-purple-500" />
@@ -539,7 +437,7 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {businesses.map((business) => (
+              {businesses.map((business: Business) => (
                 <BusinessCard 
                   key={business.id} 
                   business={business}
@@ -554,6 +452,14 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
           </>
         )}
       </div>
+
+      {/* Edit Business Dialog */}
+      <BusinessDialog 
+        business={editingBusiness} 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen} 
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 }

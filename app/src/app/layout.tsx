@@ -31,6 +31,29 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-white`}
         suppressHydrationWarning={true}
       >
+        {/* Script inline para aplicar dark mode antes del primer render */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const savedTheme = localStorage.getItem('dark-mode-storage');
+                  if (savedTheme) {
+                    const parsed = JSON.parse(savedTheme);
+                    const shouldBeDark = parsed.state?.isDarkMode || false;
+                    if (shouldBeDark) {
+                      document.documentElement.classList.add('dark');
+                    } else {
+                      document.documentElement.classList.remove('dark');
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error applying dark mode:', e);
+                }
+              })();
+            `,
+          }}
+        />
         <DarkModeInitializer />
         <StateSyncer />
         {children}

@@ -139,8 +139,8 @@ export function AppSidebar({ isOpen = false, onClose }: AppSidebarProps) {
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
           <div className="flex items-center justify-between gap-2 mb-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-                <Bot className="h-5 w-5 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: '#4338ca' }}>
+                <Bot className="h-5 w-5" style={{ color: '#ffffff' }} />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ReceptionistAI</h2>

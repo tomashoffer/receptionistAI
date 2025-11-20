@@ -11,14 +11,16 @@ const nextConfig = {
     // Deshabilitar verificación de tipos durante el build para probar cookies
     ignoreBuildErrors: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/:path*`,
-      },
-    ];
-  },
+  // Removido: Ya no necesitamos rewrites porque todas las llamadas al backend
+  // pasan por nuestras API routes en /app/api/* que actúan como proxy
+  // async rewrites() {
+  //   return [
+  //     {
+  //       source: '/api/:path*',
+  //       destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/:path*`,
+  //     },
+  //   ];
+  // },
 };
 
 module.exports = nextConfig;
