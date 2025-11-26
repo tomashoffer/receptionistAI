@@ -227,6 +227,49 @@ export function InformacionEstablecimientoTab({ businessType, onProgressChange, 
     }));
   };
 
+  // Verificar si todo está marcado como revisado
+  const isAllReviewed = useMemo(() => {
+    // Verificar todas las respuestas de todas las secciones
+    const allAnswersReviewed = Object.keys(content).every(sectionKey => {
+      if (sectionKey === 'situaciones') return true;
+      const section = content[sectionKey];
+      return section.questions.every((q, index) => {
+        const fieldKey = `respuesta${index + 1}`;
+        return revisadoData[sectionKey]?.[fieldKey] === true;
+      });
+    });
+    
+    // Verificar todas las situaciones
+    const allSituacionesReviewed = situaciones.length > 0 && 
+      situaciones.every(sit => sit.revisado === true);
+    
+    return allAnswersReviewed && allSituacionesReviewed;
+  }, [revisadoData, situaciones, content]);
+
+  // Función para marcar/desmarcar todo como revisado
+  const toggleAllAsReviewed = () => {
+    const shouldMark = !isAllReviewed;
+    
+    // Marcar/desmarcar todas las respuestas de todas las secciones
+    setRevisadoData(prev => {
+      const updated = { ...prev };
+      Object.keys(content).forEach(sectionKey => {
+        if (sectionKey === 'situaciones') return;
+        updated[sectionKey] = {};
+        content[sectionKey].questions.forEach((q, index) => {
+          updated[sectionKey][`respuesta${index + 1}`] = shouldMark;
+        });
+      });
+      return updated;
+    });
+
+    // Marcar/desmarcar todas las situaciones
+    setSituaciones(prev => prev.map(sit => ({
+      ...sit,
+      revisado: shouldMark
+    })));
+  };
+
   const addSituacion = () => {
     const newId = Math.max(...situaciones.map(s => s.id), 0) + 1;
     setSituaciones([...situaciones, {
@@ -323,6 +366,18 @@ export function InformacionEstablecimientoTab({ businessType, onProgressChange, 
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      {/* Header con botón de marcar todo */}
+      <div className="flex items-center justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleAllAsReviewed}
+          className="text-xs md:text-sm"
+        >
+          {isAllReviewed ? 'Desmarcar todo' : 'Marcar todo como revisado'}
+        </Button>
+      </div>
+
       {/* Importante Section */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 md:p-6">
         <div className="flex items-start gap-4">

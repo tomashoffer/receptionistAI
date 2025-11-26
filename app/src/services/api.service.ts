@@ -231,9 +231,13 @@ class ApiService {
       document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
       document.cookie = 'refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax';
       
-      // 4. Limpiar cualquier token en localStorage/sessionStorage si existe
+      // 4. Limpiar localStorage completamente (incluyendo stores de Zustand)
+      localStorage.removeItem('assistant-storage');
+      localStorage.removeItem('user-store-storage');
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      
+      // 5. Limpiar sessionStorage
       sessionStorage.clear();
       
       console.log('✅ Logout completo: backend, cookies y storage limpiados');
@@ -366,6 +370,10 @@ class ApiService {
     return this.request(`/assistant-configs/business/${businessId}`);
   }
 
+  async getAssistantConfigById(configId: string) {
+    return this.request(`/assistant-configs/${configId}`);
+  }
+
   async createAssistantConfig(data: {
     business_id: string;
     industry: string;
@@ -381,10 +389,28 @@ class ApiService {
   async updateAssistantConfig(configId: string, data: {
     prompt?: string;
     config_data?: any;
+    behavior_config?: any;
+    prompt_voice?: string;
+    is_custom_prompt_voice?: boolean;
   }) {
     return this.request(`/assistant-configs/${configId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Voice/Vapi endpoints
+  async createVapiAssistant(businessId: string, config?: any, endpoint: 'spanish' | 'english' = 'spanish') {
+    return this.request(`/vapi/business/${businessId}/assistant/${endpoint}`, {
+      method: 'POST',
+      body: JSON.stringify(config || {}),
+    });
+  }
+
+  async updateVapiAssistant(businessId: string, config: any) {
+    return this.request(`/vapi/business/${businessId}/assistant`, {
+      method: 'PATCH',
+      body: JSON.stringify(config),
     });
   }
 }

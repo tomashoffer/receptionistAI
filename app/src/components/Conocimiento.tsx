@@ -17,6 +17,7 @@ import { IntegracionFotosTab } from './conocimiento/IntegracionFotosTab';
 import { apiService } from '../services/api.service';
 import { businessTypeContent, BusinessType } from '../config/businessConfig/businessTypeContent';
 import { UnsavedChangesDialog } from './ui/unsaved-changes-dialog';
+import { BehaviorConfigWarningDialog } from './ui/behavior-config-warning-dialog';
 import { toast } from 'sonner';
 import { CheckCircle } from 'lucide-react';
 
@@ -63,7 +64,7 @@ export function Conocimiento() {
   const router = useRouter();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState('configuracion');
-  const { activeBusiness } = useUserStore();
+  const { activeBusiness, updateBusiness } = useUserStore();
   const {
     assistantConfig,
     assistantConfigId,
@@ -240,6 +241,7 @@ export function Conocimiento() {
   const isLoading = isLoadingConfig;
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [showBehaviorWarningDialog, setShowBehaviorWarningDialog] = useState(false);
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const initialConfigRef = useRef<any>(null);
   const navigationBlockedRef = useRef(false);
@@ -329,16 +331,65 @@ export function Conocimiento() {
         console.log('Nombre del asistente en config_data:', config?.config_data?.configuracionAsistente?.fields?.find((f: any) => f.key === 'nombre')?.value);
         
         if (config) {
-          // Siempre usar los datos del backend, no del localStorage
-          // Forzar actualización del store con los datos del backend
-          console.log('Actualizando store con datos del backend...');
-          console.log('Config completo a guardar en store:', JSON.stringify(config, null, 2));
-          
-          // Usar getState para forzar la actualización
+          // Verificar si hay datos en el store que no están en el backend (cambios locales)
           const currentStore = useAssistantStore.getState();
-          console.log('Store ANTES de actualizar:', currentStore.assistantConfig?.config_data?.configuracionAsistente?.fields?.find((f: any) => f.key === 'nombre')?.value);
+          const storeConfig = currentStore.assistantConfig;
           
-          setAssistantConfig(config);
+          // Si hay config_data en el store del mismo business, mergear cambios locales con backend
+          // Priorizar cambios locales (del store) sobre backend para mantener datos sin guardar
+          let finalConfig = config;
+          
+          if (storeConfig?.config_data && storeConfig.business_id === activeBusiness.id && storeConfig.id === config.id) {
+            // Hay datos locales del mismo business y misma config, mergear manteniendo cambios locales
+            console.log('Hay datos locales en store, mergeando con backend (priorizando cambios locales)...');
+            
+            // Merge profundo: mantener cambios locales pero completar con datos del backend
+            const mergedConfigData = {
+              ...config.config_data, // Base desde backend
+              ...storeConfig.config_data, // Sobrescribir con cambios locales
+              // Merge profundo para cada sección
+              configuracionAsistente: {
+                ...config.config_data?.configuracionAsistente,
+                ...storeConfig.config_data?.configuracionAsistente,
+              },
+              precioDisponibilidad: {
+                ...config.config_data?.precioDisponibilidad,
+                ...storeConfig.config_data?.precioDisponibilidad,
+              },
+              informacionEstablecimiento: {
+                ...config.config_data?.informacionEstablecimiento,
+                ...storeConfig.config_data?.informacionEstablecimiento,
+              },
+              informacionExtra: {
+                ...config.config_data?.informacionExtra,
+                ...storeConfig.config_data?.informacionExtra,
+              },
+              integracionFotos: {
+                ...config.config_data?.integracionFotos,
+                ...storeConfig.config_data?.integracionFotos,
+              },
+            };
+            
+            finalConfig = {
+              ...config,
+              config_data: mergedConfigData,
+            };
+            
+            console.log('Config_data mergeado (cambios locales preservados)');
+          }
+          
+          // Normalizar behaviorConfig a behavior_config para el store
+          const normalizedConfig = {
+            ...finalConfig,
+            behavior_config: finalConfig.behaviorConfig || finalConfig.behavior_config || storeConfig?.behavior_config || {},
+          };
+          // Eliminar behaviorConfig si existe para evitar duplicados
+          if (normalizedConfig.behaviorConfig) {
+            delete normalizedConfig.behaviorConfig;
+          }
+          
+          console.log('Actualizando store con datos mergeados...');
+          setAssistantConfig(normalizedConfig);
           
           // Esperar un momento y verificar
           setTimeout(() => {
@@ -367,7 +418,54 @@ export function Conocimiento() {
             isInitialLoadRef.current = false;
           }, 500);
         } else {
-          // Si no existe, crear una estructura vacía que se completará con businessTypeContent
+          // Si no existe, crear automáticamente en el backend
+          console.log('No existe configuración, creando automáticamente...');
+          try {
+            const emptyConfigData = {
+              configuracionAsistente: {},
+              precioDisponibilidad: {},
+              informacionEstablecimiento: {},
+              informacionExtra: {},
+              integracionFotos: {
+                areasComunes: [],
+                fotosGenerales: [],
+              },
+            };
+            
+            // Crear configuración en el backend con prompt básico
+            const defaultPrompt = `Eres un asistente virtual profesional. Tu trabajo es ayudar a los clientes con información sobre servicios y agendar citas de manera amable y eficiente.`;
+            
+            const newConfig = await apiService.createAssistantConfig({
+              business_id: activeBusiness.id,
+              industry: activeBusiness.industry,
+              prompt: defaultPrompt,
+              config_data: emptyConfigData,
+            }) as any;
+            
+            console.log('Configuración creada automáticamente:', newConfig);
+            
+            // Actualizar store con la nueva configuración
+            setAssistantConfig(newConfig);
+            initialConfigRef.current = JSON.parse(JSON.stringify(newConfig.config_data || emptyConfigData));
+
+            // Inicializar progreso en 0 para configuración nueva
+            setTabProgress({
+              configuracion: 0,
+              precios: 0,
+              establecimiento: 0,
+              extra: 0,
+              integracion: 0,
+            });
+            
+            // Marcar que la carga inicial ha terminado
+            setTimeout(() => {
+              isInitialLoadRef.current = false;
+            }, 500);
+            
+            toast.success('Configuración de asistente creada automáticamente');
+          } catch (createError) {
+            console.error('Error creando configuración automáticamente:', createError);
+            // Si falla la creación, usar estructura vacía local
           const emptyConfigData = {
             configuracionAsistente: {},
             precioDisponibilidad: {},
@@ -392,19 +490,20 @@ export function Conocimiento() {
           setAssistantConfig(emptyAssistantConfig);
           initialConfigRef.current = JSON.parse(JSON.stringify(emptyConfigData));
 
-          // Inicializar progreso en 0 para configuración vacía
-          setTabProgress({
-            configuracion: 0,
-            precios: 0,
-            establecimiento: 0,
-            extra: 0,
-            integracion: 0,
-          });
-          
-          // Marcar que la carga inicial ha terminado
-          setTimeout(() => {
-            isInitialLoadRef.current = false;
-          }, 500);
+            setTabProgress({
+              configuracion: 0,
+              precios: 0,
+              establecimiento: 0,
+              extra: 0,
+              integracion: 0,
+            });
+            
+            setTimeout(() => {
+              isInitialLoadRef.current = false;
+            }, 500);
+            
+            toast.error('No se pudo crear la configuración automáticamente. Intenta guardar manualmente.');
+          }
         }
         setHasUnsavedChanges(false);
       } catch (error) {
@@ -471,10 +570,193 @@ export function Conocimiento() {
     }));
   }, [assistantConfig?.config_data, isLoadingConfig, calculateConfiguracionProgress, calculatePreciosProgress, calculateEstablecimientoProgress, calculateExtraProgress, calculateIntegracionProgress]);
 
+  // Función helper para validar si behavior_config está configurado
+  const hasBehaviorConfig = useCallback(() => {
+    if (!assistantConfig?.behavior_config) return false;
+    
+    const behaviorConfig = assistantConfig.behavior_config;
+    
+    // Verificar que tenga al menos los campos esenciales configurados
+    const hasEssentialFields = 
+      behaviorConfig.estado !== undefined &&
+      behaviorConfig.zonaHoraria !== undefined;
+    
+    // Verificar que no esté vacío (más que solo defaults)
+    const hasData = Object.keys(behaviorConfig).length > 0;
+    
+    return hasEssentialFields && hasData;
+  }, [assistantConfig?.behavior_config]);
+
+  // Función para crear asistente en Vapi (extraída para reutilización)
+  const createVapiAssistant = useCallback(async (configData: any, prompt: string, savedConfig: any) => {
+    console.log('🎯 [createVapiAssistant] Iniciando creación de assistant...');
+    console.log('🎯 [createVapiAssistant] activeBusiness:', { id: activeBusiness?.id, assistant_id: activeBusiness?.assistant_id });
+    
+    if (!activeBusiness?.id) {
+      console.error('❌ [createVapiAssistant] No hay activeBusiness.id');
+      return false;
+    }
+    
+    // Verificar si tiene behavior_config configurado
+    if (!hasBehaviorConfig()) {
+      console.log('⚠️ [createVapiAssistant] No hay behavior_config configurado, mostrando advertencia...');
+      setShowBehaviorWarningDialog(true);
+      return false;
+    }
+    
+    try {
+      console.log('🎯 [createVapiAssistant] Iniciando try block...');
+      // Cargar configuración completa desde el backend para obtener prompt_voice actualizado
+      let configWithPromptVoice = savedConfig;
+      if (savedConfig?.id) {
+        try {
+          const freshConfig = await apiService.getAssistantConfigById(savedConfig.id) as any;
+          configWithPromptVoice = freshConfig;
+          console.log('✅ Configuración cargada desde backend con prompt_voice:', {
+            hasPromptVoice: !!freshConfig?.prompt_voice,
+            promptVoiceLength: freshConfig?.prompt_voice?.length || 0,
+            vapiSyncStatus: freshConfig?.vapiSyncStatus,
+          });
+          
+          // ✅ Validar que KB esté "synced" antes de crear el assistant
+          const syncStatus = (freshConfig as any).vapiSyncStatus;
+          if (syncStatus === 'syncing') {
+            console.log('⏳ KB está sincronizando, esperando a que termine...');
+            toast.info('La base de conocimiento se está sincronizando. Esperando a que termine...');
+            
+            // Esperar hasta que el sync termine (máximo 30 segundos)
+            let attempts = 0;
+            const maxAttempts = 30; // 30 intentos * 1 segundo = 30 segundos máximo
+            let currentStatus = syncStatus;
+            
+            while (currentStatus === 'syncing' && attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
+              attempts++;
+              
+              try {
+                const updatedConfig = await apiService.getAssistantConfigById(savedConfig.id) as any;
+                currentStatus = updatedConfig?.vapiSyncStatus || 'unknown';
+                console.log(`⏳ Intento ${attempts}/${maxAttempts}: Estado de sync: ${currentStatus}`);
+                
+                if (currentStatus === 'synced') {
+                  console.log('✅ KB sincronizada exitosamente');
+                  configWithPromptVoice = updatedConfig;
+                  break;
+                } else if (currentStatus === 'error') {
+                  console.warn('⚠️ KB sync terminó con error, pero continuaremos');
+                  toast.warning('La base de conocimiento tiene un error. Se reintentará la sincronización al crear el assistant.');
+                  break;
+                }
+              } catch (pollError) {
+                console.warn('⚠️ Error al verificar estado de sync:', pollError);
+                // Continuar intentando
+              }
+            }
+            
+            if (currentStatus === 'syncing' && attempts >= maxAttempts) {
+              console.error('❌ Timeout esperando sync de KB');
+              toast.error('La sincronización de la base de conocimiento está tomando demasiado tiempo. Por favor, intenta de nuevo en unos momentos.');
+              return false;
+            }
+          }
+          if (syncStatus === 'error') {
+            toast.warning('La base de conocimiento tiene un error. Se reintentará la sincronización al crear el assistant.');
+            // Continuar, el backend reintentará el sync
+          }
+          if (syncStatus && syncStatus !== 'synced' && syncStatus !== 'idle' && syncStatus !== 'error') {
+            console.warn(`⚠️ Estado de sync KB desconocido: ${syncStatus}. Continuando...`);
+          }
+        } catch (loadError) {
+          console.warn('⚠️ No se pudo cargar configuración desde backend, usando savedConfig:', loadError);
+          // Continuar con savedConfig si falla la carga
+        }
+      }
+      
+      // Usar prompt_voice si existe, sino usar el prompt regular
+      const systemPrompt = configWithPromptVoice?.prompt_voice || configWithPromptVoice?.prompt || prompt;
+      
+      if (!systemPrompt || systemPrompt.trim().length === 0) {
+        console.error('❌ No hay prompt disponible para crear el asistente');
+        toast.error('No hay prompt configurado. Por favor, completa la configuración del asistente.');
+        return false;
+      }
+      
+      console.log('📝 Creando asistente en Vapi con prompt:', {
+        hasPromptVoice: !!configWithPromptVoice?.prompt_voice,
+        promptLength: systemPrompt.length,
+        usingPromptVoice: !!configWithPromptVoice?.prompt_voice,
+      });
+      
+      // Obtener idioma y voz desde configData
+      const language = configData.configuracionAsistente?.language || 'es';
+      const voiceId = configData.configuracionAsistente?.voiceId || (language === 'es' ? 'tts-1' : 'tts-1');
+      
+      // Determinar el provider y configuración de voz según el voiceId
+      // Si voiceId es 'tts-1', usar OpenAI TTS (no requiere voiceId)
+      // Si voiceId es otro, usar ElevenLabs (requiere voiceId)
+      const isOpenAI = voiceId === 'tts-1';
+      const voiceConfig = isOpenAI
+        ? {
+            provider: 'openai' as const,
+            model: 'tts-1',
+            // No incluir voiceId para OpenAI TTS
+          }
+        : {
+            provider: '11labs' as const,
+            voiceId: voiceId,
+            model: 'eleven_multilingual_v2',
+          };
+      
+      // Determinar el endpoint según el idioma
+      const endpoint = language === 'es' ? 'spanish' : 'english';
+      
+      const assistantPayload = {
+        name: configData.configuracionAsistente?.fields?.find((f: any) => f.key === 'nombre')?.value || activeBusiness.name,
+        language: language,
+        voice: voiceConfig,
+        model: {
+          messages: [{
+            role: 'system',
+            content: systemPrompt,
+          }],
+        },
+      };
+      
+      console.log('🎯 [createVapiAssistant] Llamando a apiService.createVapiAssistant...');
+      console.log('🎯 [createVapiAssistant] businessId:', activeBusiness.id);
+      console.log('🎯 [createVapiAssistant] endpoint:', endpoint);
+      console.log('🎯 [createVapiAssistant] payload:', JSON.stringify(assistantPayload, null, 2));
+      
+      const vapiAssistant = await apiService.createVapiAssistant(activeBusiness.id, assistantPayload, endpoint) as any;
+      console.log('✅ [createVapiAssistant] Asistente creado en Vapi:', vapiAssistant);
+      
+      // Actualizar activeBusiness con el nuevo assistant_id
+      if (vapiAssistant?.dbAssistant?.id) {
+        updateBusiness(activeBusiness.id, {
+          assistant_id: vapiAssistant.dbAssistant.id,
+        });
+        console.log('✅ Business actualizado con assistant_id:', vapiAssistant.dbAssistant.id);
+      } else {
+        console.warn('⚠️ [createVapiAssistant] vapiAssistant no tiene dbAssistant.id:', vapiAssistant);
+      }
+      
+      toast.success('Asistente creado en Vapi exitosamente');
+      return true;
+    } catch (vapiError: any) {
+      console.error('Error creando asistente en Vapi:', vapiError);
+      toast.error(`Error creando asistente en Vapi: ${vapiError.message || 'Error desconocido'}`);
+      return false;
+    }
+  }, [activeBusiness, hasBehaviorConfig]);
+
   // Función para guardar cambios (optimistic update)
   const handleSave = useCallback(async () => {
+    console.log('🔵 [handleSave] INICIANDO handleSave');
+    console.log('🔵 [handleSave] activeBusiness:', { id: activeBusiness?.id, assistant_id: activeBusiness?.assistant_id });
+    console.log('🔵 [handleSave] assistantConfig:', { id: assistantConfig?.id });
+    
     if (!activeBusiness?.id || !assistantConfig) {
-      console.warn('No se puede guardar: falta activeBusiness o assistantConfig');
+      console.warn('❌ [handleSave] No se puede guardar: falta activeBusiness o assistantConfig');
       return;
     }
 
@@ -483,7 +765,7 @@ export function Conocimiento() {
     const previousInitialConfig = JSON.parse(JSON.stringify(initialConfigRef.current));
 
     try {
-      console.log('Iniciando guardado de configuración (optimistic update)...');
+      console.log('🔵 [handleSave] Iniciando guardado de configuración (optimistic update)...');
       // Obtener el prompt generado desde configuracionAsistente
       const configData = assistantConfig.config_data || {};
       const prompt = configData.configuracionAsistente?.prompt || assistantConfig.prompt || '';
@@ -513,27 +795,112 @@ export function Conocimiento() {
         duration: 3000,
       });
       
-      // 2. GUARDAR EN EL BACKEND EN PARALELO (sin esperar)
+      // 2. GUARDAR EN EL BACKEND Y SINCRONIZAR CON VAPI
+      // Capturar el valor de activeBusiness al momento de crear la función para evitar problemas de closure
+      const currentBusinessId = activeBusiness?.id;
+      const currentAssistantId = activeBusiness?.assistant_id;
+      
       const saveToBackend = async () => {
+        console.log('🟢 [saveToBackend] INICIANDO saveToBackend');
+        console.log('🟢 [saveToBackend] currentBusinessId:', currentBusinessId);
+        console.log('🟢 [saveToBackend] currentAssistantId:', currentAssistantId);
+        console.log('🟢 [saveToBackend] activeBusiness actual:', { id: activeBusiness?.id, assistant_id: activeBusiness?.assistant_id });
+        
         try {
+          let savedConfig: any;
+          
           if (assistantConfig.id) {
             // Actualizar config existente
-            console.log('Guardando en backend (async)...');
-            const updatedConfig = await apiService.updateAssistantConfig(assistantConfig.id, {
+            console.log('🟢 [saveToBackend] Guardando en backend (async)...');
+            
+            // Detectar qué cambió para sincronización inteligente
+            const initialData = previousInitialConfig;
+            const currentData = configData;
+            
+            // Comparar para detectar cambios en knowledge base (config_data)
+            const knowledgeBaseChanged = !deepEqual(
+              {
+                precioDisponibilidad: initialData.precioDisponibilidad,
+                informacionEstablecimiento: initialData.informacionEstablecimiento,
+                informacionExtra: initialData.informacionExtra,
+                integracionFotos: initialData.integracionFotos,
+              },
+              {
+                precioDisponibilidad: currentData.precioDisponibilidad,
+                informacionEstablecimiento: currentData.informacionEstablecimiento,
+                informacionExtra: currentData.informacionExtra,
+                integracionFotos: currentData.integracionFotos,
+              }
+            );
+            
+            // Comparar para detectar cambios en prompt
+            const promptChanged = 
+              (initialData.configuracionAsistente?.prompt || '') !== 
+              (currentData.configuracionAsistente?.prompt || '');
+            
+            console.log('🟢 [saveToBackend] Cambios detectados:', { knowledgeBaseChanged, promptChanged });
+            
+            savedConfig = await apiService.updateAssistantConfig(assistantConfig.id, {
               config_data: configData,
               prompt,
             }) as any;
             
-            // Actualizar el store con la respuesta del backend (por si hay cambios adicionales)
+            console.log('🟢 [saveToBackend] Después de guardar config, verificando assistant_id...');
+            console.log('🟢 [saveToBackend] currentAssistantId (capturado):', currentAssistantId);
+            console.log('🟢 [saveToBackend] activeBusiness?.assistant_id (actual):', activeBusiness?.assistant_id);
+            console.log('🟢 [saveToBackend] !currentAssistantId:', !currentAssistantId);
+            
+            // Si no hay assistant_id, SIEMPRE intentar crear asistente en Vapi
+            // (incluso si no detectamos cambios, porque el usuario puede estar haciendo click en "Crear Asistente")
+            // Usar el valor capturado para evitar problemas de closure
+            console.log('🟢 [saveToBackend] Evaluando condición para crear assistant...');
+            console.log('🟢 [saveToBackend] currentAssistantId === null:', currentAssistantId === null);
+            console.log('🟢 [saveToBackend] currentAssistantId === undefined:', currentAssistantId === undefined);
+            console.log('🟢 [saveToBackend] currentAssistantId == null:', currentAssistantId == null);
+            console.log('🟢 [saveToBackend] !currentAssistantId:', !currentAssistantId);
+            
+            if (!currentAssistantId) {
+              console.log('🚀 [CREATE ASSISTANT] ✅ CONDICIÓN CUMPLIDA: No hay assistant_id, intentando crear asistente en Vapi...');
+              console.log('🚀 [CREATE ASSISTANT] activeBusiness:', { id: activeBusiness?.id, assistant_id: activeBusiness?.assistant_id });
+              console.log('🚀 [CREATE ASSISTANT] currentBusinessId:', currentBusinessId);
+              console.log('🚀 [CREATE ASSISTANT] currentData:', currentData);
+              console.log('🚀 [CREATE ASSISTANT] prompt:', prompt);
+              console.log('🚀 [CREATE ASSISTANT] savedConfig:', savedConfig);
+              
+              try {
+                console.log('🚀 [CREATE ASSISTANT] Llamando a createVapiAssistant...');
+                const created = await createVapiAssistant(currentData, prompt, savedConfig);
+                console.log('🚀 [CREATE ASSISTANT] Resultado de createVapiAssistant:', created);
+                if (created) {
+                  console.log('✅ Asistente creado exitosamente. Recargando business para obtener assistant_id...');
+                  // Recargar business para obtener el nuevo assistant_id
+                  // Esto se hará automáticamente cuando el usuario recargue la página o navegue
+                } else {
+                  console.warn('⚠️ [CREATE ASSISTANT] createVapiAssistant retornó false');
+                }
+              } catch (createError: any) {
+                console.error('❌ [CREATE ASSISTANT] Error al crear asistente:', createError);
+                console.error('❌ [CREATE ASSISTANT] Stack:', createError?.stack);
+                console.error('❌ [CREATE ASSISTANT] Message:', createError?.message);
+                // NO re-lanzar el error aquí, solo loguearlo para no romper el flujo de guardado
+                toast.error(`Error al crear asistente: ${createError?.message || 'Error desconocido'}`);
+              }
+            } else {
+              console.log('ℹ️ [CREATE ASSISTANT] ❌ CONDICIÓN NO CUMPLIDA: Ya existe assistant_id, no se creará nuevo assistant');
+              console.log('ℹ️ [CREATE ASSISTANT] currentAssistantId:', currentAssistantId);
+              console.log('ℹ️ [CREATE ASSISTANT] activeBusiness.assistant_id:', activeBusiness?.assistant_id);
+            }
+            
+            // Actualizar el store con la respuesta del backend
             console.log('Backend guardado exitosamente, actualizando store con respuesta del backend');
-            setAssistantConfig(updatedConfig);
-            if (updatedConfig?.config_data) {
-              initialConfigRef.current = JSON.parse(JSON.stringify(updatedConfig.config_data));
+            setAssistantConfig(savedConfig);
+            if (savedConfig?.config_data) {
+              initialConfigRef.current = JSON.parse(JSON.stringify(savedConfig.config_data));
             }
           } else {
             // Crear nueva config
             console.log('Creando nueva configuración en backend (async)...');
-            const newConfig = await apiService.createAssistantConfig({
+            savedConfig = await apiService.createAssistantConfig({
               business_id: activeBusiness.id,
               industry: activeBusiness.industry,
               prompt,
@@ -541,9 +908,15 @@ export function Conocimiento() {
             }) as any;
             
             console.log('Nueva configuración creada en backend');
-            setAssistantConfig(newConfig);
-            if (newConfig?.config_data) {
-              initialConfigRef.current = JSON.parse(JSON.stringify(newConfig.config_data));
+            setAssistantConfig(savedConfig);
+            if (savedConfig?.config_data) {
+              initialConfigRef.current = JSON.parse(JSON.stringify(savedConfig.config_data));
+            }
+            
+            // Si no hay assistant_id, crear asistente en Vapi
+            if (!activeBusiness?.assistant_id) {
+              console.log('No hay assistant_id, intentando crear asistente en Vapi...');
+              await createVapiAssistant(configData, prompt, savedConfig);
             }
           }
         } catch (backendError) {
@@ -554,11 +927,21 @@ export function Conocimiento() {
           initialConfigRef.current = previousInitialConfig;
           setHasUnsavedChanges(true);
           toast.error('Error al guardar en el servidor. Los cambios se revirtieron.');
+        } finally {
+          console.log('🟢 [saveToBackend] FINALIZANDO saveToBackend');
         }
       };
       
       // Ejecutar guardado en backend sin bloquear
-      saveToBackend();
+      console.log('🔵 [handleSave] Ejecutando saveToBackend()...');
+      saveToBackend()
+        .then(() => {
+          console.log('✅ [handleSave] saveToBackend completado exitosamente');
+        })
+        .catch((error) => {
+          console.error('❌ [handleSave] Error en saveToBackend:', error);
+          console.error('❌ [handleSave] Stack:', error?.stack);
+        });
       
       return true;
     } catch (error) {
@@ -570,7 +953,7 @@ export function Conocimiento() {
       toast.error('Error al guardar la configuración. Por favor intenta nuevamente.');
       throw error;
     }
-  }, [activeBusiness, assistantConfig, setAssistantConfig]);
+  }, [activeBusiness, assistantConfig, setAssistantConfig, createVapiAssistant]);
 
   // Función para manejar el guardado y navegación
   const handleSaveAndNavigate = useCallback(async () => {
@@ -923,9 +1306,14 @@ export function Conocimiento() {
               className="bg-purple-600 hover:bg-purple-700 px-6 py-3 disabled:bg-gray-400 disabled:cursor-not-allowed"
               style={navButtonStyle}
               onClick={handleSave}
-              disabled={!hasUnsavedChanges || isLoading}
+              disabled={
+                isLoading || 
+                (activeBusiness?.assistant_id ? !hasUnsavedChanges : false)
+                // Si no hay assistant_id, siempre habilitar el botón "Crear Asistente"
+                // Si hay assistant_id, solo habilitar si hay cambios sin guardar
+              }
             >
-              Actualizar
+              {activeBusiness?.assistant_id ? 'Actualizar' : 'Crear Asistente'}
             </Button>
           </div>
         </div>
@@ -945,9 +1333,21 @@ export function Conocimiento() {
         onCancel={handleCancelAndNavigate}
         title="¿Tienes cambios sin guardar?"
         description="Tienes cambios sin guardar. Si navegas fuera de esta página, perderás los cambios que no hayas guardado."
-        saveLabel="Actualizar"
+        saveLabel={activeBusiness?.assistant_id ? 'Actualizar' : 'Crear Asistente'}
         cancelLabel="Salir"
         isLoading={isLoading}
+      />
+
+      {/* Dialog para advertencia de behavior_config faltante */}
+      <BehaviorConfigWarningDialog
+        open={showBehaviorWarningDialog}
+        onOpenChange={setShowBehaviorWarningDialog}
+        onGoToBehavior={() => {
+          router.push('/dashboard/configuracion-asistente');
+        }}
+        onCancel={() => {
+          setShowBehaviorWarningDialog(false);
+        }}
       />
     </div>
   );

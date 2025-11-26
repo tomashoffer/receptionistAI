@@ -232,7 +232,7 @@ export function PrecioDisponibilidadTab({ onProgressChange, initialData, onDataC
     if (initialData?.configAvanzada) {
       setConfigAvanzada(initialData.configAvanzada);
     } else {
-      setConfigAvanzada(content.precioDisponibilidad.configAvanzada);
+    setConfigAvanzada(content.precioDisponibilidad.configAvanzada);
     }
     lastConfigAvanzadaHashRef.current = configAvanzadaHash;
   }, [configAvanzadaHash, initialData?.configAvanzada, content.precioDisponibilidad.configAvanzada]);
@@ -324,6 +324,46 @@ export function PrecioDisponibilidadTab({ onProgressChange, initialData, onDataC
     }));
   };
 
+  // Verificar si todo está marcado como revisado
+  const isAllReviewed = useMemo(() => {
+    // Verificar todas las respuestas de todas las secciones
+    const allAnswersReviewed = content.precioDisponibilidad.secciones.every((section) => {
+      return section.questions.every((q, index) => {
+        const fieldKey = `respuesta${index + 1}`;
+        return revisadoData[section.key]?.[fieldKey] === true;
+      });
+    });
+    
+    // Verificar todas las situaciones
+    const allSituacionesReviewed = situaciones.length > 0 && 
+      situaciones.every(sit => sit.revisado === true);
+    
+    return allAnswersReviewed && allSituacionesReviewed;
+  }, [revisadoData, situaciones, content]);
+
+  // Función para marcar/desmarcar todo como revisado
+  const toggleAllAsReviewed = () => {
+    const shouldMark = !isAllReviewed;
+    
+    // Marcar/desmarcar todas las respuestas de todas las secciones
+    setRevisadoData(prev => {
+      const updated = { ...prev };
+      content.precioDisponibilidad.secciones.forEach((section) => {
+        updated[section.key] = {};
+        section.questions.forEach((q, index) => {
+          updated[section.key][`respuesta${index + 1}`] = shouldMark;
+        });
+      });
+      return updated;
+    });
+
+    // Marcar/desmarcar todas las situaciones
+    setSituaciones(prev => prev.map(sit => ({
+      ...sit,
+      revisado: shouldMark
+    })));
+  };
+
   // Usar ref para almacenar el callback y evitar loops infinitos
   const onProgressChangeRef = useRef(onProgressChange);
   useEffect(() => {
@@ -395,6 +435,18 @@ export function PrecioDisponibilidadTab({ onProgressChange, initialData, onDataC
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      {/* Header con botón de marcar todo */}
+      <div className="flex items-center justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleAllAsReviewed}
+          className="text-xs md:text-sm"
+        >
+          {isAllReviewed ? 'Desmarcar todo' : 'Marcar todo como revisado'}
+        </Button>
+      </div>
+
       {/* Importante Section */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 md:p-6">
         <div className="flex items-start gap-4">

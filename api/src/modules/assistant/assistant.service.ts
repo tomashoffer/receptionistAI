@@ -66,8 +66,13 @@ export class AssistantService {
 
       const savedAssistant = await this.assistantRepository.save(assistant);
       
+      // Actualizar business.assistant_id para que la relación funcione correctamente
+      business.assistant_id = savedAssistant.id;
+      await this.businessRepository.save(business);
+      
       this.logger.log(`Assistant created successfully: ${savedAssistant.id}`);
       this.logger.log('Saved assistant vapi_assistant_id:', savedAssistant.vapi_assistant_id);
+      this.logger.log(`Business ${business.id} updated with assistant_id: ${savedAssistant.id}`);
       return savedAssistant;
 
     } catch (error) {

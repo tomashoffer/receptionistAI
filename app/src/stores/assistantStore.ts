@@ -16,6 +16,26 @@ export interface AssistantConfig {
     informacionExtra?: any;
     integracionFotos?: any;
   };
+  behavior_config?: {
+    estado?: string;
+    horarios?: string;
+    reactivar?: string;
+    zonaHoraria?: string;
+    email?: string;
+    telefono?: string;
+    latitud?: string;
+    longitud?: string;
+    mensajePausa?: string;
+    segundoMensaje?: boolean;
+    segundoMensajePausa?: string;
+    seguimientos?: Array<{
+      tiempo: string;
+      primero: boolean;
+      segundo: boolean;
+      primerValor: string;
+      segundoValor: string;
+    }>;
+  };
   version: number;
   created_by: string;
   created_at: string;
@@ -135,8 +155,14 @@ export const useAssistantStore = create<AssistantStore>()(
         name: 'assistant-storage',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
-          // Solo persistir datos importantes, no estados de loading
-          // NO persistir assistantConfig porque siempre debe cargarse del backend
+          // Persistir config_data para mantener los datos al cambiar de página
+          // Solo persistir config_data, no toda la config (para evitar conflictos con backend)
+          assistantConfig: state.assistantConfig ? {
+            ...state.assistantConfig,
+            // Solo persistir config_data y behavior_config, no otros campos que deben venir del backend
+            config_data: state.assistantConfig.config_data,
+            behavior_config: state.assistantConfig.behavior_config,
+          } : null,
           assistantConfigId: state.assistantConfigId,
           vapiAssistant: state.vapiAssistant,
           chatbotConfig: state.chatbotConfig,

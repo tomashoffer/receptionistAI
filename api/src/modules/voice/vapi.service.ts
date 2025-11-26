@@ -1,8 +1,13 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { VapiClient } from '@vapi-ai/server-sdk';
+import axios from 'axios';
 import { AssistantService } from '../assistant/assistant.service';
 import { BusinessService } from '../business/services/business.service';
+import { Business } from '../business/entities/business.entity';
 import { VAPI_TOOLS } from './vapi-functions';
+import { VapiKnowledgeBaseSyncService } from '../assistant/services/vapi-knowledge-base-sync.service';
 
 export interface VapiAssistantConfig {
   name: string;
@@ -42,6 +47,10 @@ export class VapiService {
     private assistantService: AssistantService,
     @Inject(forwardRef(() => BusinessService))
     private businessService: BusinessService,
+    @InjectRepository(Business)
+    private businessRepository: Repository<Business>,
+    @Inject(forwardRef(() => VapiKnowledgeBaseSyncService))
+    private kbSyncService: VapiKnowledgeBaseSyncService,
   ) {
     const vapiApiKey = process.env.VAPI_API_KEY;
     
@@ -76,8 +85,14 @@ export class VapiService {
       this.logger.log(`📍 Webhook URL configurado: ${webhookUrl}`);
 
       // Obtener business para el nombre
-      let businessName = config.name || 'Business'; // Usar el nombre del config primero
-      const cleanBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
+      const business = await this.businessRepository.findOne({
+        where: { id: businessId }
+      });
+      if (!business) {
+        throw new Error(`Business ${businessId} not found`);
+      }
+      const businessName = business.name || 'Business';
+      const cleanBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 
       // Paso 1: Crear las tools por separado en Vapi con nombre del business
       this.logger.log(`🔧 Creando tools en Vapi para ${businessName}...`);
@@ -146,8 +161,71 @@ export class VapiService {
 
       this.logger.log(`✅ ${toolIds.length}/${VAPI_TOOLS.length} tools creadas exitosamente`);
 
+      // ✅ PASO 2: Sincronizar Knowledge Base ANTES de crear el assistant
+      // Esto asegura que los archivos estén listos para asociar al assistant
+      let fileIds: string[] = [];
+      try {
+        const { AssistantConfiguration } = await import('../assistant/entities/assistant-configuration.entity');
+        const assistantConfigRepo = this.businessRepository.manager.getRepository(AssistantConfiguration);
+
+        const assistantConfig = await assistantConfigRepo.findOne({
+          where: { business_id: businessId },
+        });
+
+        if (assistantConfig) {
+          // ✅ Validar que KB no esté en estado "syncing" (job async en progreso)
+          if (assistantConfig.vapiSyncStatus === 'syncing') {
+            this.logger.warn(`⚠️ Knowledge Base está sincronizando (async job en progreso). Esperando a que termine...`);
+            // Esperar hasta que termine (máximo 30 segundos)
+            let waitTime = 0;
+            const maxWaitTime = 30000; // 30 segundos
+            const pollInterval = 1000; // 1 segundo
+            
+            while (assistantConfig.vapiSyncStatus === 'syncing' && waitTime < maxWaitTime) {
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+              waitTime += pollInterval;
+              
+              // Recargar estado
+              const refreshedConfig = await assistantConfigRepo.findOne({
+                where: { id: assistantConfig.id },
+              });
+              if (refreshedConfig) {
+                Object.assign(assistantConfig, refreshedConfig);
+              }
+            }
+            
+            if (assistantConfig.vapiSyncStatus === 'syncing') {
+              throw new Error('Knowledge Base sync está tomando demasiado tiempo. Por favor, intenta de nuevo en unos momentos.');
+            }
+          }
+          
+          // ✅ Validar que KB esté "synced" o "idle" antes de continuar
+          if (assistantConfig.vapiSyncStatus === 'error') {
+            this.logger.warn(`⚠️ Knowledge Base tiene estado "error". Reintentando sync...`);
+            // Reintentar sync una vez
+            fileIds = await this.kbSyncService.syncKnowledgeBase(assistantConfig.id);
+          } else {
+            // Sincronizar KB de forma síncrona para obtener los fileIds
+            this.logger.log(`📚 Sincronizando Knowledge Base antes de crear assistant (config: ${assistantConfig.id})...`);
+            fileIds = await this.kbSyncService.syncKnowledgeBase(assistantConfig.id);
+          }
+          
+          if (fileIds.length > 0) {
+            this.logger.log(`✅ Knowledge Base sincronizado. ${fileIds.length} archivo(s) listo(s) para asociar al assistant`);
+          } else {
+            this.logger.warn(`⚠️ Knowledge Base sincronizado pero no hay archivos. Continuando sin archivos de KB.`);
+          }
+        } else {
+          this.logger.log(`ℹ️ No hay AssistantConfiguration para este business aún. El assistant se creará sin archivos de KB.`);
+        }
+      } catch (error) {
+        this.logger.error(`❌ Error sincronizando Knowledge Base antes de crear assistant: ${error.message}`);
+        // No continuar si hay error crítico en sync KB
+        throw new Error(`No se pudo sincronizar Knowledge Base: ${error.message}`);
+      }
+
       // Preparar array de tools con sus IDs de Vapi para guardar en BD
-      const toolsWithIds = VAPI_TOOLS.map((tool, index) => ({
+      const toolsForDb = VAPI_TOOLS.map((tool, index) => ({
         id: toolIds[index], // ID de la tool en Vapi
         name: tool.function?.name || '',
         description: tool.function?.description || '',
@@ -155,9 +233,69 @@ export class VapiService {
         enabled: true,
       }));
 
-      this.logger.log('📝 Tools con IDs para guardar en BD:', JSON.stringify(toolsWithIds.map(t => ({ name: t.name, id: t.id })), null, 2));
+      // Preparar array de tools para el assistant en formato correcto: [{ id, type }] o [{ type }]
+      // Según la documentación oficial de Vapi, debemos usar 'tools' a nivel raíz, no 'model.toolIds'
+      const assistantTools: Array<{ id?: string; type: string }> = [];
+      
+      // Agregar function tools (apiRequest o function) - estas SÍ tienen ID porque se crean vía /tool
+      for (let i = 0; i < VAPI_TOOLS.length; i++) {
+        const tool = VAPI_TOOLS[i];
+        const toolId = toolIds[i];
+        const apiConfig = apiRequestTools[tool.function?.name];
+        
+        // Determinar el tipo: 'apiRequest' o 'function'
+        const toolType = apiConfig ? 'apiRequest' : 'function';
+        assistantTools.push({ id: toolId, type: toolType });
+      }
+      
+      // ✅ Agregar Query Tool (SIN ID, solo type) - ya NO se crean vía /tool
+      // Los archivos se asocian directamente al assistant, no al tool
+      if (fileIds && fileIds.length > 0) {
+        assistantTools.push({ type: 'query' });
+        this.logger.log(`✅ Query Tool agregado al assistant (sin ID, solo type)`);
+      }
+
+      // ✅ PASO 3: Validar que todos los toolIds existan en Vapi antes de crear el assistant
+      // Solo validar tools que tienen ID (function tools), no Query Tools que solo tienen type
+      const toolsWithIds = assistantTools.filter(t => t.id);
+      this.logger.log(`🔍 Validando que todos los toolIds existan en Vapi (${toolsWithIds.length} tools con ID)...`);
+      const invalidToolIds: string[] = [];
+      
+      for (const tool of toolsWithIds) {
+        if (!tool.id) continue; // Skip tools sin ID (Query Tools)
+        try {
+          const toolResponse = await this.vapi.tools.get(tool.id);
+          if (!toolResponse || !toolResponse.id) {
+            invalidToolIds.push(tool.id);
+            this.logger.warn(`⚠️ Tool ID ${tool.id} no existe o es inválido en Vapi`);
+          } else {
+            this.logger.log(`✅ Tool ${tool.id} (${tool.type}) validado en Vapi`);
+          }
+        } catch (error: any) {
+          if (error.response?.status === 404) {
+            invalidToolIds.push(tool.id);
+            this.logger.error(`❌ Tool ID ${tool.id} no encontrado en Vapi (404)`);
+          } else {
+            this.logger.warn(`⚠️ Error validando tool ${tool.id}: ${error.message}`);
+            // Continuar con validación aunque haya error de red
+          }
+        }
+      }
+      
+      if (invalidToolIds.length > 0) {
+        throw new Error(`Los siguientes toolIds no existen en Vapi: ${invalidToolIds.join(', ')}. Por favor, verifica la configuración.`);
+      }
+      
+      const queryToolsCount = assistantTools.filter(t => t.type === 'query' && !t.id).length;
+      const functionToolsCount = toolsWithIds.length;
+      this.logger.log(`✅ Todos los toolIds validados exitosamente (${functionToolsCount} function tools + ${queryToolsCount} query tools)`);
+      this.logger.log('📝 Tools con IDs para guardar en BD:', JSON.stringify(toolsForDb.map(t => ({ name: t.name, id: t.id })), null, 2));
+      this.logger.log(`📊 Total de tools incluidas en assistant: ${assistantTools.length} (${functionToolsCount} function tools + ${queryToolsCount} query tools)`);
+      this.logger.log('🔧 Tools para assistant:', JSON.stringify(assistantTools, null, 2));
 
       // Configuración optimizada para costos (GPT-4o Mini + OpenAI TTS + Deepgram)
+      // ✅ Usar formato de API REST directa según documentación oficial de Vapi
+      // tools va a nivel raíz, NO en model.toolIds
       const assistantConfig: any = {
         name: config.name,
         
@@ -173,9 +311,17 @@ export class VapiService {
               content: this.getDefaultSystemPrompt(language)
             }
           ],
-          // Tools referenciadas por ID (DENTRO del model)
-          toolIds: toolIds,
         },
+        
+        // ✅ CORRECCIÓN: tools a nivel raíz según documentación oficial de Vapi
+        // Formato: [{ id, type }] para function tools, [{ type }] para query tools
+        tools: assistantTools,
+
+        // ✅ Archivos de Knowledge Base asociados directamente al assistant
+        // Formato: [{ id: "fileId1" }, { id: "fileId2" }]
+        ...(fileIds && fileIds.length > 0 && {
+          files: fileIds.map((id) => ({ id })),
+        }),
 
         // Voice: OpenAI TTS (económico) o ElevenLabs (premium)
         voice: config.voice || {
@@ -223,14 +369,32 @@ export class VapiService {
         name: assistantConfig.name,
         hasVoice: !!assistantConfig.voice,
         hasModel: !!assistantConfig.model,
-        toolIdsCount: assistantConfig.model?.toolIds?.length || 0,
-        toolIds: assistantConfig.model?.toolIds,
+        toolsCount: assistantConfig.tools?.length || 0,
+        tools: assistantConfig.tools,
       }, null, 2));
       
-      const vapiAssistant = await this.vapi.assistants.create(assistantConfig);
+      // ✅ Usar axios directamente para tener control total sobre el formato del payload
+      // El SDK puede transformar el payload, así que usamos la API REST directa
+      const vapiApiKey = process.env.VAPI_API_KEY;
+      if (!vapiApiKey) {
+        throw new Error('VAPI_API_KEY no está configurada');
+      }
+
+      const vapiResponse = await axios.post(
+        'https://api.vapi.ai/assistant',
+        assistantConfig,
+        {
+          headers: {
+            'Authorization': `Bearer ${vapiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const vapiAssistant = vapiResponse.data;
       
       this.logger.log('✅ Asistente creado en Vapi con ID:', vapiAssistant.id);
-      this.logger.log('🔍 Tools en el assistant creado:', (vapiAssistant as any).model?.tools?.length || 0);
+      this.logger.log('🔍 Tools en el assistant creado:', (vapiAssistant as any).tools?.length || 0);
 
       // Guardar en la BD vinculado al business
       const dbAssistant = await this.assistantService.createAssistant(
@@ -246,7 +410,7 @@ export class VapiService {
           language: language,
           model_provider: 'openai' as any,
           model_name: 'gpt-4o',
-          tools: toolsWithIds, // ✅ Guardar tools con sus IDs de Vapi
+          tools: toolsForDb, // ✅ Guardar tools con sus IDs de Vapi
           server_url: assistantConfig.serverUrl,
           status: 'active' as any,
         },
@@ -429,22 +593,56 @@ export class VapiService {
         shouldUpdateAssistant = true;
       }
 
-      // 🚨 PATCH CRÍTICO DE GEMINI: FORZAR toolIds siempre que haya cualquier actualización
+      // 🚨 PATCH CRÍTICO: Preservar tools siempre que haya cualquier actualización
       if (config.model?.messages || config.voice || config.firstMessage) {
-        // CRÍTICO: Preservar los toolIds existentes cuando actualizamos el prompt
-        const existingToolIds = dbAssistant.tools?.map(t => t.id).filter(Boolean) || [];
+        // CRÍTICO: Preservar los tools existentes cuando actualizamos el prompt
+        // Obtener tools actuales del assistant desde Vapi para preservar tipos correctos
+        let existingTools: Array<{ id: string; type: string }> = [];
+        
+        try {
+          if (this.vapi && dbAssistant.vapi_assistant_id) {
+            const currentAssistant = await this.vapi.assistants.get(dbAssistant.vapi_assistant_id);
+            existingTools = (currentAssistant as any).tools || [];
+            this.logger.log(`🔍 Tools actuales del assistant en Vapi: ${existingTools.length}`);
+          }
+        } catch (error) {
+          this.logger.warn(`⚠️ No se pudieron obtener tools actuales del assistant, usando tools de BD: ${error.message}`);
+          // Fallback: construir desde BD
+          // El tipo de tools en BD no incluye 'type', así que determinamos el tipo basándonos en el nombre
+          existingTools = dbAssistant.tools?.map(t => {
+            if (!t.id) return null;
+            
+            // Determinar tipo basándonos en el nombre de la tool
+            // Si el nombre contiene 'query' o 'kb', es un Query Tool
+            // Si el nombre contiene 'get_current_datetime' o 'resolve_date', es apiRequest
+            // Por defecto, es 'function'
+            let toolType = 'function';
+            const toolName = t.name?.toLowerCase() || '';
+            
+            if (toolName.includes('query') || toolName.includes('kb')) {
+              toolType = 'query';
+            } else if (toolName.includes('get_current_datetime') || toolName.includes('resolve_date')) {
+              toolType = 'apiRequest';
+            }
+            
+            return { id: t.id, type: toolType };
+          }).filter((t): t is { id: string; type: string } => t !== null) || [];
+        }
         
         assistantUpdatePayload.model = {
           provider: 'openai', // Añadir provider y model para asegurar el LLM
           model: 'gpt-4o',
           messages: config.model?.messages || (dbAssistant.prompt ? [{ role: 'system', content: dbAssistant.prompt }] : []), // Preservar prompt existente
-          toolIds: existingToolIds, // ⭐ CRÍTICO: FORZAR LAS TOOLS EN LA ACTUALIZACIÓN
           temperature: 0.0,
           maxTokens: 500,
         };
+        
+        // ✅ CORRECCIÓN: Usar 'tools' a nivel raíz según documentación oficial de Vapi
+        // NO usar 'model.toolIds' (deprecated)
+        assistantUpdatePayload.tools = existingTools;
         shouldUpdateAssistant = true;
         
-        this.logger.log(`🔧 Preservando ${existingToolIds.length} tools + temperature: 0.0 + maxTokens: 500`);
+        this.logger.log(`🔧 Preservando ${existingTools.length} tools + temperature: 0.0 + maxTokens: 500`);
       }
 
       // 3️⃣ Actualizar assistant en Vapi SOLO si hay cambios en firstMessage, voice o model

@@ -12,6 +12,7 @@ import {
 import { Type } from 'class-transformer';
 import { Industry } from '../../business/entities/business.entity';
 import { ValidateByIndustry } from '../decorators/validate-by-industry.decorator';
+import { BehaviorConfigDto } from './behavior-config.dto';
 
 // DTOs para estructuras anidadas
 export class SituacionDto {
@@ -112,6 +113,22 @@ export class CreateAssistantConfigDto {
   @IsNotEmpty()
   prompt: string;
 
+  @IsOptional()
+  @IsString()
+  prompt_voice?: string;
+
+  @IsOptional()
+  @IsString()
+  prompt_chatbot?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_custom_prompt_voice?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_custom_prompt_chatbot?: boolean;
+
   @IsObject()
   @ValidateByIndustry()
   config_data: {
@@ -121,6 +138,11 @@ export class CreateAssistantConfigDto {
     informacionExtra: Record<string, any>;
     integracionFotos: IntegracionFotosDto;
   };
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BehaviorConfigDto)
+  behavior_config?: BehaviorConfigDto;
 }
 
 // DTO para actualizar
@@ -128,6 +150,22 @@ export class UpdateAssistantConfigDto {
   @IsOptional()
   @IsString()
   prompt?: string;
+
+  @IsOptional()
+  @IsString()
+  prompt_voice?: string;
+
+  @IsOptional()
+  @IsString()
+  prompt_chatbot?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_custom_prompt_voice?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_custom_prompt_chatbot?: boolean;
 
   @IsOptional()
   @IsObject()
@@ -139,5 +177,10 @@ export class UpdateAssistantConfigDto {
     informacionExtra?: Record<string, any>;
     integracionFotos?: Partial<IntegracionFotosDto>;
   };
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BehaviorConfigDto)
+  behavior_config?: Partial<BehaviorConfigDto>;
 }
 

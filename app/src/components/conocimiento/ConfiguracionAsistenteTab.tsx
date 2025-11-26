@@ -7,6 +7,15 @@ import { ConfigFieldInput } from './shared/ConfigFieldInput';
 import { AccordionSection } from './shared/AccordionSection';
 import { Plus } from 'lucide-react';
 import { Button } from '../ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
 
 // Custom hook para sincronizar estado local con prop (source of truth)
 function useSyncedFields(initialData: any, content: any): [Record<string, ConfigField>, (fields: Record<string, ConfigField>) => void] {
@@ -14,32 +23,43 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
   const buildFieldsFromData = (data: any, contentFields: any[]): Record<string, ConfigField> => {
     const newFields: Record<string, ConfigField> = {};
     
-    // Inicializar con defaults del businessTypeContent
-    contentFields.forEach((field: any) => {
-      newFields[field.key] = {
-        label: field.label,
-        value: field.defaultValue,
-        locked: field.locked || false,
-        multiline: field.multiline,
-        rows: field.rows
-      };
-    });
-
-    // Sobrescribir con initialData del backend/store si existe
-    if (data?.fields && Array.isArray(data.fields) && data.fields.length > 0) {
+    // Determinar si hay datos guardados (si hay fields en initialData, significa que hay datos guardados)
+    const hasSavedData = data?.fields && Array.isArray(data.fields) && data.fields.length > 0;
+    
+    // Crear un mapa de campos guardados para verificar rápidamente si un campo está guardado
+    const savedFieldsMap = new Map<string, any>();
+    if (hasSavedData) {
       data.fields.forEach((field: any) => {
-        if (newFields[field.key]) {
-          newFields[field.key] = {
-            ...newFields[field.key],
-            value: field.value ?? newFields[field.key].value,
-            // locked puede ser true o false, así que verificamos explícitamente si está definido
-            locked: field.locked !== undefined && field.locked !== null ? field.locked : newFields[field.key].locked,
-            multiline: field.multiline !== undefined ? field.multiline : newFields[field.key].multiline,
-            rows: field.rows !== undefined ? field.rows : newFields[field.key].rows
-          };
-        }
+        savedFieldsMap.set(field.key, field);
       });
     }
+    
+    // Inicializar con defaults del businessTypeContent
+    contentFields.forEach((field: any) => {
+      const savedField = savedFieldsMap.get(field.key);
+      
+      if (savedField) {
+        // Campo existe en initialData, usar sus valores
+        newFields[field.key] = {
+          label: field.label,
+          value: savedField.value ?? field.defaultValue,
+          // locked solo puede ser true si está explícitamente guardado como true
+          locked: savedField.locked === true,
+          multiline: savedField.multiline !== undefined ? savedField.multiline : field.multiline,
+          rows: savedField.rows !== undefined ? savedField.rows : field.rows
+        };
+      } else {
+        // Campo NO existe en initialData, usar defaults pero SIEMPRE locked: false
+        newFields[field.key] = {
+          label: field.label,
+          value: field.defaultValue,
+          // SIEMPRE locked: false para campos nuevos/no guardados
+          locked: false,
+          multiline: field.multiline,
+          rows: field.rows
+        };
+      }
+    });
     
     return newFields;
   };
@@ -129,8 +149,104 @@ interface Situacion {
   revisado: boolean;
 }
 
+// Voces disponibles en Vapi
+const VAPI_VOICES_ES = {
+  MALENA_TANGO: {
+    id: '1WXz8v08ntDcSTeVXMN2',
+    name: 'Malena Tango',
+    provider: '11labs',
+    description: 'Mujer, español argentino'
+  },
+  FRANCO: {
+    id: 'PBi4M0xL4G7oVYxKgqww',
+    name: 'Franco',
+    provider: '11labs',
+    description: 'Hombre, español'
+  },
+  MELANIE: {
+    id: 'bN1bDXgDIGX5lw0rtY2B',
+    name: 'Melanie',
+    provider: '11labs',
+    description: 'Mujer, español'
+  },
+};
+
+const VAPI_VOICES_EN = {
+  CHRISTINA: {
+    id: '2qfp6zPuviqeCOZIE9RZ',
+    name: 'Christina',
+    provider: '11labs',
+    description: 'Woman, English'
+  },
+  CHRISTOPHER: {
+    id: 'DHeSUVQvhhYeIxNUbtj3',
+    name: 'Christopher',
+    provider: '11labs',
+    description: 'Man, English'
+  },
+  AARON: {
+    id: 'D9Thk1W7FRMgiOhy3zVI',
+    name: 'Aaron',
+    provider: '11labs',
+    description: 'Man, English'
+  },
+};
+
 export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDataChange }: ConfiguracionAsistenteTabProps = {}) {
   const { activeBusiness } = useUserStore();
+  
+  // Estado para idioma y voz
+  const [language, setLanguage] = useState<'es' | 'en'>(() => {
+    return initialData?.language || 'es';
+  });
+  
+  const [voiceId, setVoiceId] = useState<string>(() => {
+    if (initialData?.voiceId) {
+      return initialData.voiceId;
+    }
+    // Usar la primera voz disponible según el idioma
+    const availableVoices = language === 'es' ? Object.values(VAPI_VOICES_ES) : Object.values(VAPI_VOICES_EN);
+    return availableVoices[0]?.id || '';
+  });
+  
+  // Estado para "revisado" de idioma y voz
+  const [languageReviewed, setLanguageReviewed] = useState<boolean>(() => {
+    return initialData?.languageReviewed || false;
+  });
+  
+  const [voiceReviewed, setVoiceReviewed] = useState<boolean>(() => {
+    return initialData?.voiceReviewed || false;
+  });
+  
+  // Sincronizar cuando initialData cambia
+  useEffect(() => {
+    if (initialData?.language) {
+      setLanguage(initialData.language);
+    }
+    if (initialData?.voiceId) {
+      setVoiceId(initialData.voiceId);
+    }
+    if (initialData?.languageReviewed !== undefined) {
+      setLanguageReviewed(initialData.languageReviewed);
+    }
+    if (initialData?.voiceReviewed !== undefined) {
+      setVoiceReviewed(initialData.voiceReviewed);
+    }
+  }, [initialData?.language, initialData?.voiceId, initialData?.languageReviewed, initialData?.voiceReviewed]);
+  
+  // Obtener voces disponibles según el idioma seleccionado
+  const availableVoices = useMemo(() => {
+    return language === 'es' ? Object.values(VAPI_VOICES_ES) : Object.values(VAPI_VOICES_EN);
+  }, [language]);
+  
+  // Resetear voz cuando cambia el idioma si la voz actual no está disponible en el nuevo idioma
+  useEffect(() => {
+    const currentVoice = availableVoices.find(v => v.id === voiceId);
+    if (!currentVoice) {
+      // Si la voz actual no está disponible, usar la primera disponible
+      setVoiceId(availableVoices[0]?.id || '');
+    }
+  }, [language, availableVoices, voiceId]);
   
   // Determine appointment type and labels
   const appointmentType = useMemo(() => {
@@ -176,43 +292,85 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
   // Esto asegura que siempre se sincronice cuando initialData cambia, incluso después de desmontar/montar
   const [fields, setFields] = useSyncedFields(initialData, content);
 
-  // Sincronizar directrices con initialData
-  const [directrices, setDirectrices] = useState({
-    value: initialData?.directrices?.value || content.configuracionAsistente.directrices.defaultValue,
-    locked: initialData?.directrices?.locked || false
-  });
+  // Memoizar defaultValue para evitar cambios en cada render
+  const directricesDefaultValue = useMemo(() => {
+    return content.configuracionAsistente.directrices.defaultValue;
+  }, [content.configuracionAsistente.directrices.defaultValue]);
 
-  // Hash para detectar cambios en directrices
+  // Hash para detectar cambios en directrices (incluye el caso cuando no existe)
   const directricesHash = useMemo(() => {
-    if (!initialData?.directrices) return '';
+    if (!initialData?.directrices) {
+      // Si no hay directrices, usar hash vacío pero estable
+      return 'empty';
+    }
     return JSON.stringify({
       value: initialData.directrices.value || '',
-      locked: initialData.directrices.locked || false
+      locked: initialData.directrices.locked ?? false
     });
   }, [initialData?.directrices?.value, initialData?.directrices?.locked]);
 
   const lastDirectricesHashRef = useRef<string | null>(null);
+  const isInitialMountRef = useRef(true);
 
-  // Sincronizar directrices cuando initialData cambia
+  // Sincronizar directrices con initialData
+  const [directrices, setDirectrices] = useState(() => {
+    // Inicializar con valores correctos desde el inicio
+    const defaultValue = content.configuracionAsistente.directrices.defaultValue;
+    if (initialData?.directrices) {
+      return {
+        value: initialData.directrices.value || defaultValue,
+        locked: initialData.directrices.locked ?? false
+      };
+    }
+    return {
+      value: defaultValue,
+      locked: false
+    };
+  });
+
+  // Sincronizar directrices cuando initialData cambia (solo si el hash cambió)
   useEffect(() => {
+    // En el primer mount, no hacer nada (ya se inicializó correctamente)
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      lastDirectricesHashRef.current = directricesHash;
+      return;
+    }
+
+    // Evitar actualización si el hash no cambió
     if (directricesHash === lastDirectricesHashRef.current) {
       return;
     }
 
     if (initialData?.directrices) {
-      setDirectrices({
-        value: initialData.directrices.value ?? content.configuracionAsistente.directrices.defaultValue,
-        locked: initialData.directrices.locked ?? false
+      const newValue = initialData.directrices.value || directricesDefaultValue;
+      const newLocked = initialData.directrices.locked ?? false;
+      
+      // Solo actualizar si realmente cambió
+      setDirectrices(prev => {
+        if (prev.value === newValue && prev.locked === newLocked) {
+          return prev;
+        }
+        return {
+          value: newValue,
+          locked: newLocked
+        };
       });
     } else {
       // Si no hay initialData, usar defaults
-      setDirectrices({
-        value: content.configuracionAsistente.directrices.defaultValue,
-        locked: false
+      setDirectrices(prev => {
+        if (prev.value === directricesDefaultValue && prev.locked === false) {
+          return prev;
+        }
+        return {
+          value: directricesDefaultValue,
+          locked: false
+        };
       });
     }
+    
     lastDirectricesHashRef.current = directricesHash;
-  }, [directricesHash, initialData?.directrices, content.configuracionAsistente.directrices.defaultValue]);
+  }, [directricesHash, directricesDefaultValue]);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['directrices']));
   
@@ -274,15 +432,15 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
       );
     } else {
       // Si no hay initialData, usar defaults
-      setSituaciones(
-        content.configuracionAsistente.situaciones.map((sit, index) => ({
-          id: index + 1,
-          numero: index + 1,
-          titulo: sit.titulo,
-          descripcion: sit.descripcion,
+    setSituaciones(
+      content.configuracionAsistente.situaciones.map((sit, index) => ({
+        id: index + 1,
+        numero: index + 1,
+        titulo: sit.titulo,
+        descripcion: sit.descripcion,
           revisado: false
-        }))
-      );
+      }))
+    );
     }
     lastSituacionesHashRef.current = situacionesHash;
   }, [situacionesHash, initialData?.situaciones, content.configuracionAsistente.situaciones]);
@@ -303,6 +461,56 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
         locked: !fields[fieldName].locked
       }
     });
+  };
+
+  // Verificar si todo está marcado como revisado
+  const isAllReviewed = useMemo(() => {
+    // Verificar fields
+    const allFieldsReviewed = Object.keys(fields).every(key => fields[key].locked === true);
+    
+    // Verificar directrices
+    const directricesReviewed = directrices.locked === true;
+    
+    // Verificar situaciones (excluyendo la número 8)
+    const situacionesRelevantes = situaciones.filter(sit => sit.numero !== 8);
+    const allSituacionesReviewed = situacionesRelevantes.length > 0 && 
+      situacionesRelevantes.every(sit => sit.revisado === true);
+    
+    // Verificar idioma y voz
+    const languageAndVoiceReviewed = languageReviewed && voiceReviewed;
+    
+    return allFieldsReviewed && directricesReviewed && allSituacionesReviewed && languageAndVoiceReviewed;
+  }, [fields, directrices, situaciones, languageReviewed, voiceReviewed]);
+
+  // Función para marcar/desmarcar todo como revisado
+  const toggleAllAsReviewed = () => {
+    const shouldMark = !isAllReviewed;
+    
+    // Marcar/desmarcar todos los fields
+    const updatedFields: Record<string, ConfigField> = {};
+    Object.keys(fields).forEach(key => {
+      updatedFields[key] = {
+        ...fields[key],
+        locked: shouldMark
+      };
+    });
+    setFields(updatedFields);
+
+    // Marcar/desmarcar directrices
+    setDirectrices(prev => ({
+      ...prev,
+      locked: shouldMark
+    }));
+
+    // Marcar/desmarcar todas las situaciones (excluyendo la número 8)
+    setSituaciones(prev => prev.map(sit => ({
+      ...sit,
+      revisado: sit.numero === 8 ? sit.revisado : shouldMark
+    })));
+    
+    // Marcar/desmarcar idioma y voz
+    setLanguageReviewed(shouldMark);
+    setVoiceReviewed(shouldMark);
   };
 
   const updateField = (fieldName: string, value: string) => {
@@ -364,7 +572,7 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
 
     // Excluir la situación número 8 del total (es especial y no se cuenta)
     const situacionesRelevantes = situaciones.filter(sit => sit.numero !== 8);
-    const totalItems = content.configuracionAsistente.fields.length + 1 + situacionesRelevantes.length; // fields + directrices + situaciones (sin la 8)
+    const totalItems = content.configuracionAsistente.fields.length + 1 + situacionesRelevantes.length + 2; // fields + directrices + situaciones (sin la 8) + idioma + voz
     let completedItems = 0;
 
     // Contar campos completados y con check "Revisado"
@@ -394,10 +602,18 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
       sit.titulo.trim() !== '' && sit.descripcion.trim() !== '' && sit.revisado
     ).length;
     completedItems += situacionesCompletadas;
+    
+    // Contar idioma y voz revisados
+    if (languageReviewed) {
+      completedItems++;
+    }
+    if (voiceReviewed) {
+      completedItems++;
+    }
 
     const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
     onProgressChangeRef.current(progress);
-  }, [fields, directrices, situaciones, content]);
+  }, [fields, directrices, situaciones, content, languageReviewed, voiceReviewed]);
 
   // Reportar cambios al padre
   const onDataChangeRef = useRef(onDataChange);
@@ -429,10 +645,14 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
         revisado: sit.revisado,
       })),
       prompt: generatePrompt(), // Incluir el prompt generado
+      language: language, // Incluir idioma seleccionado
+      voiceId: voiceId, // Incluir voz seleccionada
+      languageReviewed: languageReviewed, // Incluir estado de revisado del idioma
+      voiceReviewed: voiceReviewed, // Incluir estado de revisado de la voz
     };
 
     onDataChangeRef.current(currentData);
-  }, [fields, directrices, situaciones, appointmentType]);
+  }, [fields, directrices, situaciones, appointmentType, language, voiceId, languageReviewed, voiceReviewed]);
 
   const generatePrompt = () => {
     // Helper para obtener valor de campo de forma segura
@@ -612,9 +832,16 @@ ${web ? `\nPágina web: ${web}` : ''}`;
 
       {/* Right Column - Configuration Fields */}
       <div className="space-y-4 md:space-y-6 order-1 lg:order-2">
-        <div>
+        <div className="flex items-center justify-between">
           <h2 className="text-lg mb-1">Información principal</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleAllAsReviewed}
+            className="text-xs md:text-sm"
+          >
+            {isAllReviewed ? 'Desmarcar todo' : 'Marcar todo como revisado'}
+          </Button>
         </div>
 
         {/* Nombre del asistente */}
@@ -646,9 +873,62 @@ ${web ? `\nPágina web: ${web}` : ''}`;
           />
         )}
 
+        {/* Idioma */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="language">Idioma</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                checked={languageReviewed}
+                onCheckedChange={() => setLanguageReviewed(!languageReviewed)}
+              />
+              <span className="text-sm text-gray-600">Revisado</span>
+            </div>
+          </div>
+          <Select value={language} onValueChange={(value: 'es' | 'en') => setLanguage(value)} disabled={languageReviewed}>
+            <SelectTrigger id="language" className={`w-full ${languageReviewed ? 'bg-gray-50' : 'bg-white'}`}>
+              <SelectValue placeholder="Selecciona un idioma" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="es">Español</SelectItem>
+              <SelectItem value="en">English</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Voz */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="voice">Voz</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                checked={voiceReviewed}
+                onCheckedChange={() => setVoiceReviewed(!voiceReviewed)}
+              />
+              <span className="text-sm text-gray-600">Revisado</span>
+            </div>
+          </div>
+          <Select value={voiceId} onValueChange={(value: string) => setVoiceId(value)} disabled={voiceReviewed}>
+            <SelectTrigger id="voice" className={`w-full ${voiceReviewed ? 'bg-gray-50' : 'bg-white'}`}>
+              <SelectValue placeholder="Selecciona una voz" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableVoices.map((voice) => (
+                <SelectItem key={voice.id} value={voice.id}>
+                  <div className="flex flex-col">
+                    <span>{voice.name}</span>
+                    {voice.description && (
+                      <span className="text-xs text-gray-500">{voice.description}</span>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="pt-4">
           <h2 className="text-lg mb-1">{businessInfoLabel}</h2>
-          <Badge variant="outline" className="text-xs">Revisado</Badge>
         </div>
 
         {/* Nombre del establecimiento */}
@@ -713,7 +993,7 @@ ${web ? `\nPágina web: ${web}` : ''}`;
           <>
             <div className="pt-4">
               <h2 className="text-lg mb-1">Propuesta de valor</h2>
-              <Badge variant="outline" className="text-xs">Revisado</Badge>
+  
             </div>
 
             {/* Propuesta de valor */}
@@ -736,7 +1016,7 @@ ${web ? `\nPágina web: ${web}` : ''}`;
           <>
             <div className="pt-4">
               <h2 className="text-lg mb-1">Página web</h2>
-              <Badge variant="outline" className="text-xs">Revisado</Badge>
+  
             </div>
 
             {/* Página web */}
@@ -774,13 +1054,19 @@ ${web ? `\nPágina web: ${web}` : ''}`;
               </div>
             </div>
             <textarea
-              value={directrices.value}
-              onChange={(e) => setDirectrices({ ...directrices, value: e.target.value })}
+              value={directrices.value || directricesDefaultValue}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                // Si el usuario borra todo y queda igual al defaultValue, guardar string vacío
+                const finalValue = newValue === directricesDefaultValue ? '' : newValue;
+                setDirectrices({ ...directrices, value: finalValue });
+              }}
               disabled={directrices.locked}
               className={`w-full p-3 border rounded-lg resize-none ${directrices.locked ? 'bg-gray-50' : 'bg-white'}`}
               rows={10}
+              placeholder={directricesDefaultValue}
             />
-            <p className="text-xs text-gray-500">{directrices.value.length}/1500 caracteres</p>
+            <p className="text-xs text-gray-500">{(directrices.value || directricesDefaultValue).length}/1500 caracteres</p>
           </div>
         </AccordionSection>
 

@@ -8,6 +8,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AssistantConfigService } from './assistant-config.service';
@@ -17,6 +18,7 @@ import { AuthUser } from '../../decorators/auth-user.decorator';
 import { RoleType } from '../../constants/role-type';
 import { UserDto } from '../user/dto/user.dto';
 import { AssistantConfiguration } from './entities/assistant-configuration.entity';
+import { VoicePromptGeneratorService } from './services/voice-prompt-generator.service';
 
 @Controller('assistant-configs')
 @ApiTags('assistant-configs')
@@ -24,6 +26,7 @@ import { AssistantConfiguration } from './entities/assistant-configuration.entit
 export class AssistantConfigController {
   constructor(
     private readonly assistantConfigService: AssistantConfigService,
+    private readonly voicePromptGenerator: VoicePromptGeneratorService,
   ) {}
 
   @Post()
@@ -57,6 +60,90 @@ export class AssistantConfigController {
   @ApiResponse({ status: 404, description: 'Configuration not found' })
   async findOne(@Param('id') id: string): Promise<AssistantConfiguration> {
     return await this.assistantConfigService.findOne(id);
+  }
+
+  @Post(':id/regenerate-voice-prompt')
+  @Auth([RoleType.USER, RoleType.ADMIN])
+  @ApiOperation({ summary: 'Regenerate voice prompt for a configuration (by config ID)' })
+  @ApiResponse({ status: 200, description: 'Voice prompt regenerated successfully' })
+  @ApiResponse({ status: 404, description: 'Configuration not found' })
+  async regenerateVoicePrompt(@Param('id') configId: string): Promise<{ prompt_voice: string; source: string }> {
+    const config = await this.assistantConfigService.findOne(configId);
+    const business = config.business;
+    
+    if (!business) {
+      throw new NotFoundException(`Business not found for configuration ${configId}`);
+    }
+
+    const businessData = {
+      name: business.name,
+      industry: business.industry,
+      phone_number: business.phone_number,
+      address: business.address,
+      email: business.email,
+      website: business.website,
+      business_hours: business.business_hours,
+      services: business.services || [],
+      required_fields: ['name', 'email', 'phone', 'service', 'date', 'time'],
+    };
+
+    const promptVoice = this.voicePromptGenerator.generateVoicePrompt(businessData, config);
+
+    // Actualizar la configuración con el nuevo prompt
+    await this.assistantConfigService.update(configId, {
+      prompt_voice: promptVoice,
+      is_custom_prompt_voice: false,
+    }, config.created_by);
+
+    return {
+      prompt_voice: promptVoice,
+      source: 'auto',
+    };
+  }
+
+  @Post('business/:businessId/regenerate-voice-prompt')
+  @Auth([RoleType.USER, RoleType.ADMIN])
+  @ApiOperation({ summary: 'Regenerate voice prompt for a configuration (by business ID)' })
+  @ApiResponse({ status: 200, description: 'Voice prompt regenerated successfully' })
+  @ApiResponse({ status: 404, description: 'Configuration not found for this business' })
+  async regenerateVoicePromptByBusiness(@Param('businessId') businessId: string): Promise<{ prompt_voice: string; source: string; config_id: string }> {
+    const config = await this.assistantConfigService.findByBusinessId(businessId);
+    
+    if (!config) {
+      throw new NotFoundException(`No configuration found for business ${businessId}`);
+    }
+
+    const business = config.business;
+    
+    if (!business) {
+      throw new NotFoundException(`Business ${businessId} not found`);
+    }
+
+    const businessData = {
+      name: business.name,
+      industry: business.industry,
+      phone_number: business.phone_number,
+      address: business.address,
+      email: business.email,
+      website: business.website,
+      business_hours: business.business_hours,
+      services: business.services || [],
+      required_fields: ['name', 'email', 'phone', 'service', 'date', 'time'],
+    };
+
+    const promptVoice = this.voicePromptGenerator.generateVoicePrompt(businessData, config);
+
+    // Actualizar la configuración con el nuevo prompt
+    await this.assistantConfigService.update(config.id, {
+      prompt_voice: promptVoice,
+      is_custom_prompt_voice: false,
+    }, config.created_by);
+
+    return {
+      prompt_voice: promptVoice,
+      source: 'auto',
+      config_id: config.id,
+    };
   }
 
   @Patch(':id')

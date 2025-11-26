@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Megaphone, PlayCircle } from 'lucide-react';
+import { Button } from '../ui/button';
 import { businessTypeContent, BusinessType } from '../../config/businessConfig/businessTypeContent';
 import { SectionWithQuestions } from './shared/SectionWithQuestions';
 
@@ -150,6 +151,35 @@ export function InformacionExtraTab({ businessType, onProgressChange, initialDat
     }));
   };
 
+  // Verificar si todo está marcado como revisado
+  const isAllReviewed = useMemo(() => {
+    // Verificar todas las respuestas de todas las secciones
+    return Object.keys(content).every(sectionKey => {
+      const section = content[sectionKey];
+      return section.questions.every((q, index) => {
+        const fieldKey = `respuesta${index + 1}`;
+        return revisadoData[sectionKey]?.[fieldKey] === true;
+      });
+    });
+  }, [revisadoData, content]);
+
+  // Función para marcar/desmarcar todo como revisado
+  const toggleAllAsReviewed = () => {
+    const shouldMark = !isAllReviewed;
+    
+    // Marcar/desmarcar todas las respuestas de todas las secciones
+    setRevisadoData(prev => {
+      const updated = { ...prev };
+      Object.keys(content).forEach(sectionKey => {
+        updated[sectionKey] = {};
+        content[sectionKey].questions.forEach((q, index) => {
+          updated[sectionKey][`respuesta${index + 1}`] = shouldMark;
+        });
+      });
+      return updated;
+    });
+  };
+
   // Usar ref para almacenar el callback y evitar loops infinitos
   const onProgressChangeRef = useRef(onProgressChange);
   useEffect(() => {
@@ -207,6 +237,18 @@ export function InformacionExtraTab({ businessType, onProgressChange, initialDat
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      {/* Header con botón de marcar todo */}
+      <div className="flex items-center justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleAllAsReviewed}
+          className="text-xs md:text-sm"
+        >
+          {isAllReviewed ? 'Desmarcar todo' : 'Marcar todo como revisado'}
+        </Button>
+      </div>
+
       {/* Importante Section */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 md:p-6">
         <div className="flex items-start gap-4">

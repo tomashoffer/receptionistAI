@@ -121,10 +121,10 @@ export class Assistant {
   status: AssistantStatus;
 
   // Metadatos
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', nullable: true })
   created_by: string;
 
-  @ManyToOne(() => UserEntity, { nullable: false })
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })
   creator: UserEntity;
 
