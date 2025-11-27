@@ -710,10 +710,18 @@ export function Conocimiento() {
       // Determinar el endpoint según el idioma
       const endpoint = language === 'es' ? 'spanish' : 'english';
       
+      // Obtener firstMessage desde configData
+      const firstMessage = configData.configuracionAsistente?.firstMessage || 
+        (language === 'es' 
+          ? '¡Hola! Bienvenido. Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?'
+          : 'Hello! Welcome. I\'m your virtual assistant. How can I help you today?');
+      
+      // El nombre del assistant debe ser el business name (no el nombre del asistente)
       const assistantPayload = {
-        name: configData.configuracionAsistente?.fields?.find((f: any) => f.key === 'nombre')?.value || activeBusiness.name,
+        name: activeBusiness.name, // Usar business name como nombre del assistant
         language: language,
         voice: voiceConfig,
+        firstMessage: firstMessage,
         model: {
           messages: [{
             role: 'system',
@@ -1343,10 +1351,7 @@ export function Conocimiento() {
         open={showBehaviorWarningDialog}
         onOpenChange={setShowBehaviorWarningDialog}
         onGoToBehavior={() => {
-          router.push('/dashboard/configuracion-asistente');
-        }}
-        onCancel={() => {
-          setShowBehaviorWarningDialog(false);
+          router.push('/dashboard/configuracion');
         }}
       />
     </div>

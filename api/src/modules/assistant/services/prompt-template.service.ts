@@ -133,7 +133,7 @@ export class PromptTemplateService {
     }
 
     // [KNOWLEDGE BASE USAGE]
-    blocks.push(this.generateKnowledgeBaseUsageBlock(isSpanish, isVoice));
+    blocks.push(this.generateKnowledgeBaseUsageBlock(isSpanish, isVoice, businessName));
 
     // [MANEJO DE IMÁGENES] - Removido para voice (no es necesario mencionar imágenes en voz)
 
@@ -156,13 +156,32 @@ export class PromptTemplateService {
     isSpanish: boolean,
   ): string {
     if (isSpanish) {
+      // Si voicePersona contiene un nombre de voz específico, usarlo directamente
+      // Si no, usar descripción genérica
+      let voiceDescription: string;
+      if (voicePersona.includes('TTS') || voicePersona.includes('seleccionada')) {
+        voiceDescription = voicePersona;
+      } else {
+        // Para voces con nombre específico, usar descripción más natural
+        voiceDescription = `${voicePersona}, cálida y auténticamente argentina`;
+      }
+      
       return `[IDENTIDAD]
 
-Eres "${assistantName}", la recepcionista virtual creada por ReceptionistAI para ${businessName}${location ? ` en ${location}` : ''}. Tu voz es ${voicePersona}, cálida y auténticamente argentina.`;
+Eres "${assistantName}", la recepcionista virtual para ${businessName}${location ? ` en ${location}` : ''}. Tu voz es ${voiceDescription}.`;
     }
+    
+    // Versión en inglés
+    let voiceDescription: string;
+    if (voicePersona.includes('TTS') || voicePersona.includes('selected')) {
+      voiceDescription = voicePersona;
+    } else {
+      voiceDescription = `${voicePersona}, warm and authentic`;
+    }
+    
     return `[IDENTITY]
 
-You are "${assistantName}", the virtual receptionist created by ReceptionistAI for ${businessName}${location ? ` in ${location}` : ''}. Your voice is ${voicePersona}, warm and authentic.`;
+You are "${assistantName}", the virtual receptionist created by ReceptionistAI for ${businessName}${location ? ` in ${location}` : ''}. Your voice is ${voiceDescription}.`;
   }
 
   private generatePurposeBlock(isSpanish: boolean): string {
@@ -399,15 +418,21 @@ In these situations, you must stop and transfer to a human or indicate you will 
 ${situacionesList}`;
   }
 
-  private generateKnowledgeBaseUsageBlock(isSpanish: boolean, isVoice: boolean): string {
+  private generateKnowledgeBaseUsageBlock(isSpanish: boolean, isVoice: boolean, businessName?: string): string {
+    // ✅ Generar nombre del Query Tool de manera consistente con el helper
+    const cleanBusinessName = businessName 
+      ? businessName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
+      : 'business';
+    const queryToolName = `knowledge_base_query_${cleanBusinessName}`;
+    
     if (isSpanish) {
       return `[KNOWLEDGE BASE USAGE]
 
-Saca servicios, horarios y políticas de la base de conocimiento adjunta. Si falta algún dato, pedilo cortésmente al cliente.`;
+Saca servicios, horarios y políticas de la base de conocimiento adjunta usando la herramienta '${queryToolName}'. Cuando el cliente pregunte sobre servicios, precios, horarios, políticas o información del establecimiento, DEBES usar la herramienta '${queryToolName}' para buscar en la base de conocimiento antes de responder. Si falta algún dato después de buscar, pedilo cortésmente al cliente.`;
     }
     return `[KNOWLEDGE BASE USAGE]
 
-Get services, hours, and policies from the attached knowledge base. If any data is missing, ask the client politely.`;
+Get services, hours, and policies from the attached knowledge base using the '${queryToolName}' tool. When the client asks about services, pricing, hours, policies, or establishment information, you MUST use the '${queryToolName}' tool to search the knowledge base before responding. If any data is missing after searching, ask the client politely.`;
   }
 
   private generateImagesHandlingBlock(isSpanish: boolean): string {

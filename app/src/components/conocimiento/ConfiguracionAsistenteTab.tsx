@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Badge } from '../ui/badge';
 import { useUserStore } from '../../stores/userStore';
 import { businessAppointmentType, appointmentTypeLabels, businessTypeContent, BusinessType, ConfigField as ConfigFieldType } from '../../config/businessConfig/businessTypeContent';
@@ -18,7 +18,7 @@ import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 
 // Custom hook para sincronizar estado local con prop (source of truth)
-function useSyncedFields(initialData: any, content: any): [Record<string, ConfigField>, (fields: Record<string, ConfigField>) => void] {
+function useSyncedFields(initialData: any, content: any, activeBusiness: any): [Record<string, ConfigField>, (fields: Record<string, ConfigField>) => void] {
   // Función helper para construir fields desde initialData o defaults
   const buildFieldsFromData = (data: any, contentFields: any[]): Record<string, ConfigField> => {
     const newFields: Record<string, ConfigField> = {};
@@ -34,15 +34,44 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
       });
     }
     
+    // Mapeo de campos del business a campos de configuracionAsistente
+    const businessFieldMap: Record<string, string> = {
+      'web': 'website',
+      'ubicacion': 'address',
+      'establecimiento': 'name',
+    };
+    
+    // Función helper para obtener valor del business si el campo está vacío
+    const getBusinessValue = (fieldKey: string): string => {
+      const businessKey = businessFieldMap[fieldKey];
+      if (!businessKey || !activeBusiness) return '';
+      
+      const businessValue = (activeBusiness as any)[businessKey];
+      return businessValue && typeof businessValue === 'string' ? businessValue : '';
+    };
+    
     // Inicializar con defaults del businessTypeContent
     contentFields.forEach((field: any) => {
       const savedField = savedFieldsMap.get(field.key);
       
       if (savedField) {
         // Campo existe en initialData, usar sus valores
+        // Si el valor guardado está vacío o es undefined, priorizar el valor del business sobre el defaultValue
+        const savedValue = savedField.value;
+        let finalValue: string;
+        
+        if (savedValue && savedValue.trim() !== '') {
+          // Hay un valor guardado explícitamente, usarlo
+          finalValue = savedValue;
+        } else {
+          // No hay valor guardado, priorizar el valor del business sobre el defaultValue
+          const businessValue = getBusinessValue(field.key);
+          finalValue = businessValue || field.defaultValue || '';
+        }
+        
         newFields[field.key] = {
           label: field.label,
-          value: savedField.value ?? field.defaultValue,
+          value: finalValue,
           // locked solo puede ser true si está explícitamente guardado como true
           locked: savedField.locked === true,
           multiline: savedField.multiline !== undefined ? savedField.multiline : field.multiline,
@@ -50,9 +79,13 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
         };
       } else {
         // Campo NO existe en initialData, usar defaults pero SIEMPRE locked: false
+        // Priorizar el valor del business sobre el defaultValue
+        const businessValue = getBusinessValue(field.key);
+        const finalValue = businessValue || field.defaultValue || '';
+        
         newFields[field.key] = {
           label: field.label,
-          value: field.defaultValue,
+          value: finalValue,
           // SIEMPRE locked: false para campos nuevos/no guardados
           locked: false,
           multiline: field.multiline,
@@ -98,6 +131,18 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
   // Refs para rastrear los últimos hashes procesados
   const lastFieldsHashRef = useRef<string | null>(null);
   const lastContentHashRef = useRef<string | null>(null);
+  const lastBusinessHashRef = useRef<string | null>(null);
+
+  // Hash para detectar cambios en activeBusiness
+  const businessHash = useMemo(() => {
+    if (!activeBusiness) return '';
+    return JSON.stringify({
+      website: (activeBusiness as any).website || '',
+      address: (activeBusiness as any).address || '',
+      name: activeBusiness.name || '',
+      description: (activeBusiness as any).description || '',
+    });
+  }, [activeBusiness]);
 
   // Sincronizar cuando initialData cambia (datos guardados)
   useEffect(() => {
@@ -109,7 +154,7 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
     const newFields = buildFieldsFromData(initialData, content.configuracionAsistente.fields);
     setFields(newFields);
     lastFieldsHashRef.current = fieldsHash;
-  }, [fieldsHash, initialData, content.configuracionAsistente.fields]);
+  }, [fieldsHash, initialData, content.configuracionAsistente.fields, activeBusiness]);
 
   // Sincronizar cuando content cambia (nuevos campos del business type)
   useEffect(() => {
@@ -122,7 +167,52 @@ function useSyncedFields(initialData: any, content: any): [Record<string, Config
     const newFields = buildFieldsFromData(initialData, content.configuracionAsistente.fields);
     setFields(newFields);
     lastContentHashRef.current = contentHash;
-  }, [contentHash, initialData, content.configuracionAsistente.fields]);
+  }, [contentHash, initialData, content.configuracionAsistente.fields, activeBusiness]);
+
+  // Sincronizar cuando activeBusiness cambia (para poblar campos con datos del business)
+  useEffect(() => {
+    if (businessHash === lastBusinessHashRef.current) {
+      return;
+    }
+
+    // Actualizar campos con datos del business si están vacíos o tienen defaultValue
+    setFields(prevFields => {
+      const updatedFields = { ...prevFields };
+      let hasChanges = false;
+
+      Object.keys(updatedFields).forEach(key => {
+        const field = updatedFields[key];
+        // Solo actualizar si el campo no está bloqueado
+        if (!field.locked) {
+          const businessKey = key === 'web' ? 'website' : key === 'ubicacion' ? 'address' : key === 'establecimiento' ? 'name' : null;
+          if (businessKey && activeBusiness) {
+            const businessValue = (activeBusiness as any)[businessKey];
+            if (businessValue && typeof businessValue === 'string' && businessValue.trim() !== '') {
+              const currentValue = field.value || '';
+              
+              // Obtener el defaultValue del content
+              const contentField = content.configuracionAsistente.fields.find((f: any) => f.key === key);
+              const defaultValue = contentField?.defaultValue || '';
+              
+              // Actualizar si:
+              // 1. El campo está vacío, O
+              // 2. El valor actual es igual al defaultValue (significa que no se ha guardado un valor personalizado)
+              if (!currentValue.trim() || currentValue === defaultValue) {
+                if (currentValue !== businessValue) {
+                  updatedFields[key] = { ...field, value: businessValue };
+                  hasChanges = true;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return hasChanges ? updatedFields : prevFields;
+    });
+
+    lastBusinessHashRef.current = businessHash;
+  }, [businessHash, activeBusiness, content.configuracionAsistente.fields]);
 
   return [fields, setFields];
 }
@@ -218,6 +308,29 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
     return initialData?.voiceReviewed || false;
   });
   
+  // Función para generar el mensaje inicial por defecto
+  const generateDefaultFirstMessage = useCallback((assistantName: string, businessName: string, lang: 'es' | 'en'): string => {
+    if (lang === 'es') {
+      return `¡Hola! Bienvenido. Soy ${assistantName}, recepcionista de ${businessName}. ¿Necesitas una cita?`;
+    }
+    return `Hello! Welcome. I'm ${assistantName}, receptionist at ${businessName}. Do you need an appointment?`;
+  }, []);
+
+  // Estado para firstMessage - inicializar con valor simple, luego actualizar cuando fields esté disponible
+  const [firstMessage, setFirstMessage] = useState<string>(() => {
+    if (initialData?.firstMessage) {
+      return initialData.firstMessage;
+    }
+    // Valor temporal, se actualizará cuando fields esté disponible
+    return language === 'es' 
+      ? '¡Hola! Bienvenido. Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?'
+      : 'Hello! Welcome. I\'m your virtual assistant. How can I help you today?';
+  });
+  
+  const [firstMessageReviewed, setFirstMessageReviewed] = useState<boolean>(() => {
+    return initialData?.firstMessageReviewed || false;
+  });
+  
   // Sincronizar cuando initialData cambia
   useEffect(() => {
     if (initialData?.language) {
@@ -232,7 +345,14 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
     if (initialData?.voiceReviewed !== undefined) {
       setVoiceReviewed(initialData.voiceReviewed);
     }
-  }, [initialData?.language, initialData?.voiceId, initialData?.languageReviewed, initialData?.voiceReviewed]);
+    if (initialData?.firstMessage) {
+      setFirstMessage(initialData.firstMessage);
+    }
+    if (initialData?.firstMessageReviewed !== undefined) {
+      setFirstMessageReviewed(initialData.firstMessageReviewed);
+    }
+  }, [initialData?.language, initialData?.voiceId, initialData?.languageReviewed, initialData?.voiceReviewed, initialData?.firstMessage, initialData?.firstMessageReviewed]);
+  
   
   // Obtener voces disponibles según el idioma seleccionado
   const availableVoices = useMemo(() => {
@@ -290,7 +410,17 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
 
   // Usar custom hook para sincronizar fields con initialData (source of truth)
   // Esto asegura que siempre se sincronice cuando initialData cambia, incluso después de desmontar/montar
-  const [fields, setFields] = useSyncedFields(initialData, content);
+  const [fields, setFields] = useSyncedFields(initialData, content, activeBusiness);
+  
+  // Actualizar firstMessage con valores dinámicos cuando fields esté disponible (si no hay valor guardado)
+  useEffect(() => {
+    if (!initialData?.firstMessage && fields.nombre) {
+      const assistantName = fields.nombre.value || 'tu asistente';
+      const businessName = activeBusiness?.name || 'el negocio';
+      const defaultMessage = generateDefaultFirstMessage(assistantName, businessName, language);
+      setFirstMessage(defaultMessage);
+    }
+  }, [fields.nombre?.value, activeBusiness?.name, language, initialData?.firstMessage, generateDefaultFirstMessage]);
 
   // Memoizar defaultValue para evitar cambios en cada render
   const directricesDefaultValue = useMemo(() => {
@@ -476,8 +606,8 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
     const allSituacionesReviewed = situacionesRelevantes.length > 0 && 
       situacionesRelevantes.every(sit => sit.revisado === true);
     
-    // Verificar idioma y voz
-    const languageAndVoiceReviewed = languageReviewed && voiceReviewed;
+    // Verificar idioma, voz y firstMessage
+    const languageAndVoiceReviewed = languageReviewed && voiceReviewed && firstMessageReviewed;
     
     return allFieldsReviewed && directricesReviewed && allSituacionesReviewed && languageAndVoiceReviewed;
   }, [fields, directrices, situaciones, languageReviewed, voiceReviewed]);
@@ -508,9 +638,10 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
       revisado: sit.numero === 8 ? sit.revisado : shouldMark
     })));
     
-    // Marcar/desmarcar idioma y voz
+    // Marcar/desmarcar idioma, voz y firstMessage
     setLanguageReviewed(shouldMark);
     setVoiceReviewed(shouldMark);
+    setFirstMessageReviewed(shouldMark);
   };
 
   const updateField = (fieldName: string, value: string) => {
@@ -572,15 +703,15 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
 
     // Excluir la situación número 8 del total (es especial y no se cuenta)
     const situacionesRelevantes = situaciones.filter(sit => sit.numero !== 8);
-    const totalItems = content.configuracionAsistente.fields.length + 1 + situacionesRelevantes.length + 2; // fields + directrices + situaciones (sin la 8) + idioma + voz
+    const totalItems = content.configuracionAsistente.fields.length + 1 + situacionesRelevantes.length + 3; // fields + directrices + situaciones (sin la 8) + idioma + voz + firstMessage
     let completedItems = 0;
 
     // Contar campos completados y con check "Revisado"
-    // Nota: El campo "web" puede estar vacío pero marcado como revisado, así que solo verificamos el check
+    // Nota: Los campos "web" y "ubicacion" pueden estar vacíos pero marcados como revisado
     content.configuracionAsistente.fields.forEach((field) => {
       const fieldData = fields[field.key];
-      // Para el campo "web", solo verificamos si está marcado como revisado (puede estar vacío)
-      if (field.key === 'web') {
+      // Para campos opcionales (web, ubicacion), solo verificamos si está marcado como revisado
+      if (field.key === 'web' || field.key === 'ubicacion') {
         if (fieldData && fieldData.locked) {
           completedItems++;
         }
@@ -603,17 +734,41 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
     ).length;
     completedItems += situacionesCompletadas;
     
-    // Contar idioma y voz revisados
+    // Contar idioma, voz y firstMessage revisados
     if (languageReviewed) {
       completedItems++;
     }
     if (voiceReviewed) {
       completedItems++;
     }
+    // Para firstMessage, solo verificamos si está marcado como revisado (debe tener texto)
+    if (firstMessageReviewed && firstMessage.trim() !== '') {
+      completedItems++;
+    }
 
     const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    
+    // Debug: Log para verificar el cálculo
+    console.log('📊 [Progreso]', {
+      totalItems,
+      completedItems,
+      progress,
+      fieldsCompleted: content.configuracionAsistente.fields.filter(f => {
+        const fd = fields[f.key];
+        if (f.key === 'web') return fd && fd.locked;
+        return fd && fd.value.trim() !== '' && fd.locked;
+      }).length,
+      totalFields: content.configuracionAsistente.fields.length,
+      directricesLocked: directrices.locked,
+      situacionesCompletadas,
+      totalSituaciones: situacionesRelevantes.length,
+      languageReviewed,
+      voiceReviewed,
+      firstMessageReviewed: firstMessageReviewed && firstMessage.trim() !== '',
+    });
+    
     onProgressChangeRef.current(progress);
-  }, [fields, directrices, situaciones, content, languageReviewed, voiceReviewed]);
+  }, [fields, directrices, situaciones, content, languageReviewed, voiceReviewed, firstMessageReviewed, firstMessage]);
 
   // Reportar cambios al padre
   const onDataChangeRef = useRef(onDataChange);
@@ -649,10 +804,12 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
       voiceId: voiceId, // Incluir voz seleccionada
       languageReviewed: languageReviewed, // Incluir estado de revisado del idioma
       voiceReviewed: voiceReviewed, // Incluir estado de revisado de la voz
+      firstMessage: firstMessage, // Incluir mensaje inicial
+      firstMessageReviewed: firstMessageReviewed, // Incluir estado de revisado del mensaje inicial
     };
 
     onDataChangeRef.current(currentData);
-  }, [fields, directrices, situaciones, appointmentType, language, voiceId, languageReviewed, voiceReviewed]);
+  }, [fields, directrices, situaciones, appointmentType, language, voiceId, languageReviewed, voiceReviewed, firstMessage, firstMessageReviewed]);
 
   const generatePrompt = () => {
     // Helper para obtener valor de campo de forma segura
@@ -668,6 +825,9 @@ export function ConfiguracionAsistenteTab({ onProgressChange, initialData, onDat
     const infoHotel = getFieldValue('infoHotel', '');
     const propuesta = getFieldValue('propuesta', '');
     const web = getFieldValue('web', '');
+    
+    // Obtener descripción del business si está disponible
+    const businessDescription = (activeBusiness as any)?.description || '';
 
     // Generar prompt dinámico según el tipo de negocio
     const roleText = appointmentType === 'booking' 
@@ -694,6 +854,7 @@ Nombre: ${nombre}
 Establecimiento: ${establecimiento}
 ${ubicacion ? `Ubicación: ${ubicacion}` : ''}
 ${tipoEstablecimiento ? `Tipo: ${tipoEstablecimiento}` : ''}
+${businessDescription ? `\nDescripción del negocio:\n${businessDescription}` : ''}
 ${infoHotel ? `\nInformación del establecimiento:\n${infoHotel}` : ''}
 ${propuesta ? `\nPropuesta de valor:\n${propuesta}` : ''}
 ${web ? `\nPágina web: ${web}` : ''}`;
@@ -715,6 +876,9 @@ ${web ? `\nPágina web: ${web}` : ''}`;
     const infoHotel = getFieldValue('infoHotel', '');
     const propuesta = getFieldValue('propuesta', '');
     const web = getFieldValue('web', '');
+    
+    // Obtener descripción del business si está disponible
+    const businessDescription = (activeBusiness as any)?.description || '';
 
     return (
       <>
@@ -786,6 +950,14 @@ ${web ? `\nPágina web: ${web}` : ''}`;
           <>
             <span>Tipo: </span>
             <span className="underline decoration-2 decoration-purple-400">{tipoEstablecimiento}</span>
+            {'\n\n'}
+          </>
+        )}
+        {businessDescription && (
+          <>
+            <span>Descripción del negocio:</span>
+            {'\n'}
+            <span className="underline decoration-2 decoration-purple-400">{businessDescription}</span>
             {'\n\n'}
           </>
         )}
@@ -925,6 +1097,34 @@ ${web ? `\nPágina web: ${web}` : ''}`;
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Mensaje inicial */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="firstMessage">Mensaje inicial</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                checked={firstMessageReviewed}
+                onCheckedChange={() => setFirstMessageReviewed(!firstMessageReviewed)}
+              />
+              <span className="text-sm text-gray-600">Revisado</span>
+            </div>
+          </div>
+          <textarea
+            id="firstMessage"
+            value={firstMessage}
+            onChange={(e) => setFirstMessage(e.target.value)}
+            disabled={firstMessageReviewed}
+            className={`w-full p-3 border rounded-lg resize-none ${firstMessageReviewed ? 'bg-gray-50' : 'bg-white'}`}
+            rows={3}
+            placeholder={(() => {
+              const assistantName = fields.nombre?.value || 'tu asistente';
+              const businessName = activeBusiness?.name || 'el negocio';
+              return generateDefaultFirstMessage(assistantName, businessName, language);
+            })()}
+          />
+          <p className="text-xs text-gray-500">{firstMessage.length}/200 caracteres</p>
         </div>
 
         <div className="pt-4">

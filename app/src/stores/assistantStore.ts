@@ -48,7 +48,7 @@ export interface VapiAssistant {
   business_id: string;
   name: string;
   prompt: string;
-  first_message?: string;
+  first_message: string; // Cambiado de opcional a requerido
   vapi_assistant_id?: string;
   vapi_public_key?: string;
   voice_id: string;

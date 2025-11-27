@@ -8,6 +8,7 @@ import { BusinessService } from '../business/services/business.service';
 import { Business } from '../business/entities/business.entity';
 import { VAPI_TOOLS } from './vapi-functions';
 import { VapiKnowledgeBaseSyncService } from '../assistant/services/vapi-knowledge-base-sync.service';
+import { patchAssistantWithToolsAndFiles } from './voice-assistant-patcher';
 
 export interface VapiAssistantConfig {
   name: string;
@@ -236,11 +237,8 @@ export class VapiService {
         }
       }
 
-      // B. Query Tool (Referencia explícita)
-      if (fileIds && fileIds.length > 0) {
-        assistantTools.push({ type: 'query' });
-        this.logger.log(`📚 Agregando referencia a Knowledge Base (Query Tool)`);
-      }
+      // ✅ NOTA: Query Tool se crea automáticamente en patchAssistantWithToolsAndFiles
+      // cuando hay fileIds. No necesitamos agregarlo manualmente aquí.
 
       // =================================================================================
       // PASO 5: CREAR ASISTENTE (POST) - SIN TOOLS NI FILES
@@ -307,38 +305,34 @@ export class VapiService {
       this.logger.log('✅ Asistente Base Creado ID:', newAssistantId);
 
       // =================================================================================
-      // PASO 6: ASOCIAR TOOLS Y FILES (PATCH)
+      // PASO 6: ASOCIAR TOOLS Y FILES (USAR HELPER EN LUGAR DE PATCH DIRECTO)
       // =================================================================================
-      if (assistantTools.length > 0 || (fileIds && fileIds.length > 0)) {
-        this.logger.log(`🚀 [PASO 2] Asociando ${assistantTools.length} tools y ${fileIds.length || 0} files (PATCH)...`);
+      if ((assistantTools.length > 0) || (fileIds && fileIds.length > 0)) {
+        this.logger.log(`🚀 [PASO 2] Asociando tools/files usando helper (evitar PATCH directo con fields no soportados)...`);
         
-        const patchPayload: any = {
-          tools: assistantTools,
-          ...(fileIds && fileIds.length > 0 && {
-            files: fileIds.map((id) => ({ id })),
-          }),
-        };
+        // Extraer solo toolIds que tienen ID (omitimos entries tipo { type: 'query' } sin id)
+        const createdToolIds = assistantTools.map(t => t.id).filter((id): id is string => !!id);
+        const patchResult = await patchAssistantWithToolsAndFiles({
+          vapiApiKey,
+          assistantId: newAssistantId,
+          toolIds: createdToolIds,
+          fileIds: fileIds || [],
+          businessName: businessName, // Pasar business name para nombrar el Query Tool consistentemente
+          logger: this.logger,
+          // NO pasar axiosInstance: dejar que el helper cree el cliente con baseURL correcto
+          maxRetries: 2,
+        });
 
-        try {
-          await axios.patch(
-            `https://api.vapi.ai/assistant/${newAssistantId}`,
-            patchPayload,
-            {
-              headers: {
-                'Authorization': `Bearer ${vapiApiKey}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          this.logger.log('✅ Tools y Files asociados exitosamente');
-        } catch (patchError: any) {
-          this.logger.error('❌ Error en PATCH (Asociando tools/files):', patchError.response?.data || patchError.message);
-          // Opcional: Borrar el asistente si falla el patch para no dejar basura
-          // await axios.delete(`https://api.vapi.ai/assistant/${newAssistantId}`, {
-          //   headers: { 'Authorization': `Bearer ${vapiApiKey}` }
-          // });
-          throw patchError;
+        if (!patchResult.success) {
+          this.logger.error('❌ Error en asociación via helper:', {
+            reason: patchResult.reason,
+            responseData: patchResult.responseData,
+          });
+          // Mantener comportamiento previo: opcionalmente borrar el assistant o propagar el error
+          throw new Error(`Failed to attach tools/files to assistant: ${patchResult.reason}`);
         }
+
+        this.logger.log('✅ Tools y Files asociados exitosamente vía helper');
       }
 
       // 7. Guardar en BD

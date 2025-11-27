@@ -133,7 +133,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: 'https://edelweiss.uy',
+          defaultValue: 'https://edelweiss.com',
           locked: true
         }
       ],
@@ -274,16 +274,6 @@ export const businessTypeContent = {
         title: 'Información general del hotel',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre completo del establecimiento?',
-            placeholder: 'Ej: Hotel Edelweiss Punta del Este',
-            defaultValue: 'Hotel Edelweiss Punta del Este'
-          },
-          {
-            pregunta: '¿Dónde está ubicado el establecimiento?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Francia 5678, Punta del Este, Maldonado, Uruguay'
-          },
-          {
             pregunta: '¿Cuál es el tipo de establecimiento?',
             placeholder: 'Ej: Hotel boutique 5 estrellas',
             defaultValue: 'Hotel boutique 5 estrellas'
@@ -297,11 +287,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace único a tu establecimiento?',
             placeholder: 'Describe lo que te diferencia...',
             defaultValue: 'Experimentar la sofisticación alpina con servicios excepcionales en un entorno costero privilegiado.'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales del establecimiento?',
-            placeholder: 'URLs de web y redes sociales',
-            defaultValue: 'https://edelweiss.uy - Instagram: @edelweisshotel'
           }
         ]
       },
@@ -525,7 +510,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: 'Instagram: @estiloycorte',
+          defaultValue: 'www.estiloycorte.com',
           locked: true
         }
       ],
@@ -651,16 +636,6 @@ export const businessTypeContent = {
         title: 'Información general de la peluquería',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre de la peluquería?',
-            placeholder: 'Ej: Estilo y Corte',
-            defaultValue: 'Estilo y Corte'
-          },
-          {
-            pregunta: '¿Dónde está ubicada la peluquería?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
-          {
             pregunta: '¿Cuál es el concepto o especialidad de la peluquería?',
             placeholder: 'Ej: Peluquería moderna especializada en cortes y coloración',
             defaultValue: 'Peluquería moderna especializada en cortes de tendencia y técnicas de coloración avanzadas'
@@ -669,11 +644,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace única a tu peluquería?',
             placeholder: 'Describe lo que te diferencia...',
             defaultValue: 'Equipo de estilistas certificados con formación internacional y productos premium'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales?',
-            placeholder: 'URLs de web y redes sociales',
-            defaultValue: 'Instagram: @estiloycorte - Facebook: Estilo y Corte'
           }
         ]
       },
@@ -886,7 +856,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: 'www.latrattoria.uy - Instagram: @latrattoriauy',
+          defaultValue: 'www.latrattoria.com',
           locked: true
         }
       ],
@@ -1012,16 +982,6 @@ export const businessTypeContent = {
         title: 'Información general del restaurante',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre del restaurante?',
-            placeholder: 'Ej: La Trattoria',
-            defaultValue: 'La Trattoria'
-          },
-          {
-            pregunta: '¿Dónde está ubicado el restaurante?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Calle Gourmet 789, Ciudad Vieja'
-          },
-          {
             pregunta: '¿Qué tipo de cocina ofrecen?',
             placeholder: 'Ej: Cocina italiana contemporánea',
             defaultValue: 'Cocina italiana contemporánea con ingredientes locales'
@@ -1035,11 +995,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace único a tu restaurante?',
             placeholder: 'Describe lo que te diferencia...',
             defaultValue: 'Pasta fresca hecha diariamente, horno de leña tradicional, vinos importados de Italia'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales?',
-            placeholder: 'URLs de web y redes sociales',
-            defaultValue: 'www.latrattoria.uy - Instagram: @latrattoriauy'
           }
         ]
       },
@@ -1278,7 +1233,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: 'www.sonrisa.com.uy - Instagram: @clinicasonrisa',
+          defaultValue: 'www.clinicasonrisa.com',
           locked: true
         }
       ],
@@ -1405,16 +1360,6 @@ export const businessTypeContent = {
         title: 'Información general de la clínica dental',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre de la clínica?',
-            placeholder: 'Ej: Clínica Dental Sonrisa',
-            defaultValue: 'Clínica Dental Sonrisa'
-          },
-          {
-            pregunta: '¿Dónde está ubicada la clínica?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Salud 456, Montevideo'
-          },
-          {
             pregunta: '¿Cuál es la especialidad o enfoque de la clínica?',
             placeholder: 'Especialidades',
             defaultValue: 'Clínica dental integral con especialidades en ortodoncia e implantes'
@@ -1423,11 +1368,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace única a tu clínica?',
             placeholder: 'Diferenciadores',
             defaultValue: 'Tecnología de punta, equipo multidisciplinario, atención personalizada'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales?',
-            placeholder: 'URLs',
-            defaultValue: 'www.sonrisa.com.uy - Instagram: @clinicasonrisa'
           }
         ]
       },
@@ -1641,7 +1581,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: '',
+          defaultValue: 'www.mi-negocio.com',
           locked: true
         }
       ],
@@ -1752,16 +1692,6 @@ export const businessTypeContent = {
         title: 'Información general del negocio',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre del establecimiento?',
-            placeholder: 'Nombre del negocio',
-            defaultValue: 'Mi Negocio'
-          },
-          {
-            pregunta: '¿Dónde está ubicado?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Dirección del establecimiento'
-          },
-          {
             pregunta: '¿A qué se dedica el negocio?',
             placeholder: 'Describe la actividad principal',
             defaultValue: 'Descripción de la actividad del negocio'
@@ -1867,7 +1797,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: 'Instagram: @fitzone',
+          defaultValue: 'www.fitzone.com',
           locked: true
         }
       ],
@@ -1993,16 +1923,6 @@ export const businessTypeContent = {
         title: 'Información general del gimnasio',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre del gimnasio?',
-            placeholder: 'Ej: FitZone',
-            defaultValue: 'FitZone'
-          },
-          {
-            pregunta: '¿Dónde está ubicado?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
-          {
             pregunta: '¿Cuál es el concepto o especialidad del gimnasio?',
             placeholder: 'Ej: Gimnasio moderno con clases grupales',
             defaultValue: 'Gimnasio moderno con equipamiento de última generación y clases grupales variadas'
@@ -2011,11 +1931,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace único a tu gimnasio?',
             placeholder: 'Diferenciadores',
             defaultValue: 'Equipamiento de última generación, entrenadores certificados y ambiente motivador'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales?',
-            placeholder: 'URLs de web y redes sociales',
-            defaultValue: 'Instagram: @fitzone'
           }
         ]
       },
@@ -2208,7 +2123,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: '',
+          defaultValue: 'www.minegocio.com',
           locked: true
         }
       ],
@@ -2325,16 +2240,6 @@ export const businessTypeContent = {
         title: 'Información general del estudio',
         questions: [
           {
-            pregunta: '¿Cuál es el nombre del estudio jurídico?',
-            placeholder: 'Ej: Estudio Jurídico',
-            defaultValue: 'Estudio Jurídico'
-          },
-          {
-            pregunta: '¿Dónde está ubicado?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
-          {
             pregunta: '¿Cuál es la especialidad o enfoque del estudio?',
             placeholder: 'Especialidades',
             defaultValue: 'Especializado en diversas áreas del derecho'
@@ -2343,11 +2248,6 @@ export const businessTypeContent = {
             pregunta: '¿Qué hace único a tu estudio?',
             placeholder: 'Diferenciadores',
             defaultValue: 'Equipo de abogados experimentados y comprometidos con la excelencia'
-          },
-          {
-            pregunta: '¿Cuál es la página web o redes sociales?',
-            placeholder: 'URLs de web y redes sociales',
-            defaultValue: ''
           }
         ]
       },
@@ -2493,7 +2393,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: '',
+          defaultValue: 'www.minegocio.com',
           locked: true
         }
       ],
@@ -2600,16 +2500,6 @@ export const businessTypeContent = {
       general: {
         title: 'Información general de la consultora',
         questions: [
-          {
-            pregunta: '¿Cuál es el nombre de la consultora?',
-            placeholder: 'Ej: Consultora',
-            defaultValue: 'Consultora'
-          },
-          {
-            pregunta: '¿Dónde está ubicada?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
           {
             pregunta: '¿Cuál es la especialidad o enfoque?',
             placeholder: 'Especialidades',
@@ -2728,7 +2618,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: '',
+          defaultValue: 'www.minegocio.com',
           locked: true
         }
       ],
@@ -2855,16 +2745,6 @@ export const businessTypeContent = {
       general: {
         title: 'Información general de la inmobiliaria',
         questions: [
-          {
-            pregunta: '¿Cuál es el nombre de la inmobiliaria?',
-            placeholder: 'Ej: Inmobiliaria',
-            defaultValue: 'Inmobiliaria'
-          },
-          {
-            pregunta: '¿Dónde está ubicada?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
           {
             pregunta: '¿Cuál es la especialidad?',
             placeholder: 'Especialidad',
@@ -3024,7 +2904,7 @@ export const businessTypeContent = {
         {
           key: 'web',
           label: 'Página web',
-          defaultValue: '',
+          defaultValue: 'www.minegocio.com',
           locked: true
         }
       ],
@@ -3134,16 +3014,6 @@ export const businessTypeContent = {
       general: {
         title: 'Información general del taller',
         questions: [
-          {
-            pregunta: '¿Cuál es el nombre del taller?',
-            placeholder: 'Ej: Taller Automotriz',
-            defaultValue: 'Taller Automotriz'
-          },
-          {
-            pregunta: '¿Dónde está ubicado?',
-            placeholder: 'Dirección completa',
-            defaultValue: 'Av. Principal 1234, Montevideo'
-          },
           {
             pregunta: '¿Cuál es la especialidad del taller?',
             placeholder: 'Especialidad',
@@ -3280,7 +3150,19 @@ businessTypeContent.medical_clinic = {
     ...businessTypeContent.dental_clinic.informacionEstablecimiento,
     general: {
       ...businessTypeContent.dental_clinic.informacionEstablecimiento.general,
-      title: 'Información general de la clínica médica'
+      title: 'Información general de la clínica médica',
+      questions: [
+        {
+          pregunta: '¿Cuál es la especialidad o enfoque de la clínica?',
+          placeholder: 'Especialidades médicas',
+          defaultValue: ''
+        },
+        {
+          pregunta: '¿Qué hace única a tu clínica?',
+          placeholder: 'Diferenciadores y características especiales',
+          defaultValue: ''
+        }
+      ]
     }
   }
 };

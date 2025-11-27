@@ -76,6 +76,11 @@ export interface Business {
   updated_at: string;
   assistant_id?: string;
   assistant?: Assistant;
+  // Campos opcionales del business
+  description?: string;
+  email?: string;
+  address?: string;
+  website?: string;
   stats?: {
     conversations?: number;
     appointments?: number;

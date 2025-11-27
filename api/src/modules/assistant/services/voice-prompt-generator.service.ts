@@ -45,8 +45,12 @@ export class VoicePromptGeneratorService {
     // Determinar idioma
     const language = this.determineLanguage(businessData);
 
-    // Determinar voice persona
-    const voicePersona = 'clonada del dueño del negocio';
+    // Obtener voiceId desde configData
+    const voiceId = configData.voiceId;
+    const languageFromConfig = configData.language || language;
+    
+    // Mapear voiceId al nombre de la voz
+    const voicePersona = this.getVoiceNameFromId(voiceId, languageFromConfig);
 
     // Construir parámetros del template
     const templateParams: PromptTemplateParams = {
@@ -213,6 +217,44 @@ export class VoicePromptGeneratorService {
   private determineLanguage(businessData: BusinessData): string {
     // Por ahora, siempre español argentino para MVP
     return 'es-AR';
+  }
+
+  /**
+   * Obtiene el nombre de la voz basado en voiceId y idioma
+   */
+  private getVoiceNameFromId(voiceId?: string, language?: string): string {
+    if (!voiceId) {
+      return 'seleccionada desde la configuración';
+    }
+
+    // Mapeo de voiceIds a nombres (basado en ConfiguracionAsistenteTab.tsx)
+    const voicesES: Record<string, string> = {
+      '1WXz8v08ntDcSTeVXMN2': 'Malena Tango',
+      'PBi4M0xL4G7oVYxKgqww': 'Franco',
+      'bN1bDXgDIGX5lw0rtY2B': 'Melanie',
+    };
+
+    const voicesEN: Record<string, string> = {
+      '2qfp6zPuviqeCOZIE9RZ': 'Christina',
+      'DHeSUVQvhhYeIxNUbtj3': 'Christopher',
+      'D9Thk1W7FRMgiOhy3zVI': 'Aaron',
+    };
+
+    const isSpanish = !language || language.startsWith('es');
+    const voices = isSpanish ? voicesES : voicesEN;
+    
+    const voiceName = voices[voiceId];
+    
+    if (voiceName) {
+      return voiceName;
+    }
+    
+    // Si es OpenAI TTS o no se encuentra, usar descripción genérica
+    if (voiceId === 'tts-1') {
+      return 'OpenAI TTS (sintética)';
+    }
+    
+    return 'seleccionada desde la configuración';
   }
 }
 

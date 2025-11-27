@@ -348,10 +348,8 @@ export function MisNegocios({ setActiveView }: { setActiveView?: (view: string) 
   };
 
   const handleConfigure = (business: Business) => {
-    setActiveBusiness(business);
-    if (setActiveView) {
-      setActiveView('Configuración');
-    }
+    setEditingBusiness(business);
+    setEditDialogOpen(true);
   };
 
   return (

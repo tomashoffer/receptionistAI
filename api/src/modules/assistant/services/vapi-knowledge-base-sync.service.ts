@@ -6,6 +6,7 @@ import { VapiKbFile } from '../entities/vapi-kb-file.entity';
 import { VapiQueryTool } from '../entities/vapi-query-tool.entity';
 import { KnowledgeBaseGeneratorService } from './knowledge-base-generator.service';
 import { AwsS3StorageService } from './aws-s3-storage.service';
+import { patchAssistantWithToolsAndFiles } from '../../voice/voice-assistant-patcher';
 import axios from 'axios';
 import FormData = require('form-data');
 import * as fs from 'fs';
@@ -182,15 +183,78 @@ export class VapiKnowledgeBaseSyncService {
         }
       }
 
-      // 4. Guardar nuevos archivos en BD
+      // 4. Guardar nuevos archivos en BD (incluso si vapiFileId está vacío para reintento)
       await this.vapiKbFileRepo.save(newKbFiles);
 
-      // 5. Eliminar archivos antiguos de Vapi y BD
-      if (oldFiles.length > 0) {
-        this.logger.log(`🗑️ Eliminando ${oldFiles.length} archivo(s) antiguo(s) de Vapi`);
+      // ✅ Filtrar solo fileIds válidos (no vacíos) para asociar
+      const validFileIdsToAttach = newFileIds.filter(id => id && id.trim().length > 0);
+
+      // === Asociar archivos al assistant si existe un assistant asociado al business ===
+      // ✅ CRÍTICO: Solo intentar asociar si hay fileIds válidos
+      if (config.business?.assistant?.vapi_assistant_id && validFileIdsToAttach.length > 0) {
+        const assistantId = config.business.assistant.vapi_assistant_id;
+        this.logger.log(`[VAPI] Intentando asociar ${validFileIdsToAttach.length} archivo(s) al assistant ${assistantId}`);
+
+        // Obtener business name para nombrar el Query Tool consistentemente
+        const businessName = config.business?.name || 'Business';
+        
+        const patchResult = await patchAssistantWithToolsAndFiles({
+          vapiApiKey: this.VAPI_API_KEY!,
+          assistantId,
+          toolIds: [], // Si tenés toolIds, ponelos aquí (ej: [queryToolId])
+          fileIds: validFileIdsToAttach, // Solo fileIds válidos
+          businessName: businessName, // Pasar business name para nombrar el Query Tool
+          logger: this.logger,
+          // NO pasar axiosInstance: dejar que el helper cree el cliente con baseURL correcto
+          maxRetries: 2,
+        });
+
+        // ✅ Guardar schemaType detectado en la DB para futuras syncs
+        if (patchResult.schemaType) {
+          config.vapiSchemaType = patchResult.schemaType;
+        }
+
+        if (!patchResult.success) {
+          // Si la respuesta indica que el schema no soporta estas propiedades,
+          // marcamos para revisión manual (no lanzamos excepción inmediatamente).
+          if (patchResult.reason === 'unsupported_schema' || patchResult.reason === 'validation_rejected') {
+            config.vapiSyncStatus = 'needs_manual_review';
+            config.vapiLastError = JSON.stringify(patchResult.responseData);
+            await this.assistantConfigRepo.save(config);
+            this.logger.warn('[VAPI] No se pudo asociar archivos programáticamente (schema no compatible). Marcado para revisión manual.');
+          } else {
+            // Error transitorio o fallo severo: marcar error y lanzar para reintento
+            config.vapiSyncStatus = 'error';
+            config.vapiLastError = JSON.stringify(patchResult.responseData);
+            await this.assistantConfigRepo.save(config);
+            this.logger.error('[VAPI] Falló la asociación de archivos al assistant:', patchResult);
+            throw new Error('Failed to attach KB files to assistant: ' + JSON.stringify(patchResult));
+          }
+        } else {
+          this.logger.log('[VAPI] Archivos asociados correctamente al assistant:', assistantId);
+          // ✅ Verificación exitosa: los archivos están asociados, ahora podemos eliminar los antiguos
+          // El helper ya hizo la verificación POST-PATCH, así que es seguro eliminar
+          config.vapiSyncStatus = 'synced';
+          config.vapiLastSyncedAt = new Date();
+          config.vapiLastError = null;
+          await this.assistantConfigRepo.save(config);
+        }
+      } else if (config.business?.assistant?.vapi_assistant_id && validFileIdsToAttach.length === 0) {
+        // ✅ Si hay assistant pero no hay fileIds válidos para asociar, marcar warning
+        this.logger.warn('[VAPI] Assistant existe pero no hay fileIds válidos para asociar (algunos archivos fallaron al subir)');
+        // Mantener estado 'syncing' para que se reintente en próximo sync
+      }
+
+      // 5. ✅ CRÍTICO: Eliminar archivos antiguos SOLO si los nuevos están asociados exitosamente
+      // Si el PATCH falló o quedó en needs_manual_review, NO eliminar archivos antiguos
+      if (oldFiles.length > 0 && config.vapiSyncStatus === 'synced') {
+        this.logger.log(`🗑️ Eliminando ${oldFiles.length} archivo(s) antiguo(s) de Vapi (nuevos archivos verificados y asociados)`);
         for (const oldFile of oldFiles) {
           try {
-            await this.deleteFileFromVapi(oldFile.vapiFileId);
+            // Solo eliminar si tiene vapiFileId válido
+            if (oldFile.vapiFileId && oldFile.vapiFileId.trim().length > 0) {
+              await this.deleteFileFromVapi(oldFile.vapiFileId);
+            }
             await this.vapiKbFileRepo.remove(oldFile);
             this.logger.log(`✅ Archivo antiguo eliminado: ${oldFile.name} (ID: ${oldFile.vapiFileId})`);
           } catch (error) {
@@ -198,6 +262,8 @@ export class VapiKnowledgeBaseSyncService {
             // Continuar aunque falle la eliminación
           }
         }
+      } else if (oldFiles.length > 0) {
+        this.logger.warn(`⚠️ NO se eliminan ${oldFiles.length} archivo(s) antiguo(s) porque el sync no está en estado 'synced' (estado actual: ${config.vapiSyncStatus})`);
       }
 
       // 6. ✅ Ya NO se crean Query Tools vía /tool
@@ -207,11 +273,14 @@ export class VapiKnowledgeBaseSyncService {
       // 7. Limpiar archivos temporales del sistema
       await this.kbGenerator.cleanupTempFiles(tempFilePaths);
 
-      // 8. Actualizar estado final
-      config.vapiSyncStatus = 'synced';
-      config.vapiLastSyncedAt = new Date();
-      config.vapiLastError = null;
-      await this.assistantConfigRepo.save(config);
+      // 8. Actualizar estado final (solo si no se marcó como 'needs_manual_review' o 'error' previamente)
+      const currentStatus = config.vapiSyncStatus;
+      if (currentStatus !== 'needs_manual_review' && currentStatus !== 'error' && currentStatus !== 'synced') {
+        config.vapiSyncStatus = 'synced';
+        config.vapiLastSyncedAt = new Date();
+        config.vapiLastError = null;
+        await this.assistantConfigRepo.save(config);
+      }
 
       this.logger.log(`✅ Knowledge Base sincronizado exitosamente. ${newFileIds.length} archivo(s) listo(s) para asociar al assistant`);
       return newFileIds;
@@ -289,10 +358,12 @@ export class VapiKnowledgeBaseSyncService {
   }
 
   /**
-   * @deprecated Ya NO se asocian Query Tools a assistants
+   * @deprecated Ya NO se asocian Query Tools a assistants directamente
    * Los Query Tools se referencian por type en el payload del assistant: { type: 'query' }
    * Los archivos se asocian directamente al assistant: { files: [{ id: '...' }] }
-   * Este método se mantiene solo para referencia histórica
+   * 
+   * Este método mantiene compatibilidad automática usando el helper patchAssistantWithToolsAndFiles
+   * con model.toolIds/knowledgeBase.fileIds.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async attachQueryToolToAssistant(
@@ -300,115 +371,35 @@ export class VapiKnowledgeBaseSyncService {
     queryToolId: string,
     fileIds: string[]
   ): Promise<void> {
-    try {
-      // Obtener el assistant actual
-      const assistantResponse = await axios.get(
-        `${this.VAPI_API_URL}/assistant/${vapiAssistantId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.VAPI_API_KEY}`,
-          },
-        }
-      );
+    this.logger.warn('attachQueryToolToAssistant está deprecado pero manteniendo compatibilidad automática usando helper.');
+    
+    const patchResult = await patchAssistantWithToolsAndFiles({
+      vapiApiKey: this.VAPI_API_KEY!,
+      assistantId: vapiAssistantId,
+      toolIds: [queryToolId],
+      fileIds,
+      logger: this.logger,
+      // NO pasar axiosInstance: dejar que el helper cree el cliente con baseURL correcto
+      maxRetries: 2,
+    });
 
-      const assistant = assistantResponse.data;
-      // Según la API oficial de Vapi, las tools están en 'tools', no en 'model.tools'
-      const currentTools = assistant.tools || [];
-      
-      this.logger.log(`🔍 Assistant actual tiene ${currentTools.length} tools asociadas`);
-      this.logger.log(`🔍 Tools actuales:`, currentTools.map((t: any) => ({ id: t.id, type: t.type, name: t.name })));
-      
-      // ✅ NORMALIZAR tools existentes (Vapi no permite mezclar strings y objetos)
-      // Las tools pueden venir como strings o como objetos completos
-      const normalizedTools = currentTools.map((tool: any) => {
-        if (typeof tool === 'string') {
-          // Si es un string, convertirlo a objeto
-          // Intentar inferir el tipo basado en el nombre o usar 'function' por defecto
-          // Para Query Tools, el tipo será 'query', pero si no lo sabemos, usamos 'function'
-          return { id: tool, type: 'function' }; // Por defecto 'function', se actualizará si es necesario
-        }
-        // Si ya es un objeto, asegurarse de que tenga 'type'
-        return {
-          id: tool.id,
-          type: tool.type || 'function', // Si no tiene type, usar 'function' por defecto
-          ...(tool.name && { name: tool.name }),
-        };
+    if (!patchResult.success) {
+      this.logger.warn('attachQueryToolToAssistant helper failed:', {
+        reason: patchResult.reason,
+        hasResponseData: !!patchResult.responseData,
       });
-
-      // Verificar si el Query Tool ya está asociado
-      const isAlreadyAttached = normalizedTools.some((tool: any) => {
-        return tool.id === queryToolId;
-      });
-
-      if (!isAlreadyAttached) {
-        // Formato correcto según la API oficial de Vapi
-        // Referencia: https://docs.vapi.ai/knowledge-base
-        // Estructura: { "tools": [{ "id": "toolId", "type": "query" }] }
-        const updatedTools = [...normalizedTools];
-        
-        // Agregar el Query Tool con el formato correcto
-        updatedTools.push({ id: queryToolId, type: 'query' });
-
-        // Actualizar el assistant con las tools Y los archivos
-        // Vapi espera:
-        // - tools: array de objetos { id, type }
-        // - files: array de objetos { id } (los archivos se asocian al assistant, no al tool)
-        const updatePayload: any = {
-          tools: updatedTools,
-        };
-
-        // ✅ Incluir los archivos en el payload del assistant
-        if (fileIds && fileIds.length > 0) {
-          updatePayload.files = fileIds.map((fileId) => ({ id: fileId }));
-          this.logger.log(`📎 Incluyendo ${fileIds.length} archivo(s) en el assistant`);
-        }
-
-        this.logger.log(`📤 Actualizando assistant con ${updatedTools.length} tools (incluyendo Query Tool ${queryToolId})`);
-
-        await axios.patch(
-          `${this.VAPI_API_URL}/assistant/${vapiAssistantId}`,
-          updatePayload,
-          {
-            headers: {
-              Authorization: `Bearer ${this.VAPI_API_KEY}`,
-            },
-          }
-        );
-
-        // Verificar que se actualizó correctamente
-        const verifyResponse = await axios.get(
-          `${this.VAPI_API_URL}/assistant/${vapiAssistantId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.VAPI_API_KEY}`,
-            },
-          }
-        );
-
-        const verifiedTools = verifyResponse.data.tools || [];
-        const isNowAttached = verifiedTools.some((tool: any) => {
-          const toolId = typeof tool === 'string' ? tool : tool.id;
-          return toolId === queryToolId;
-        });
-
-        if (isNowAttached) {
-          this.logger.log(`✅ Query Tool ${queryToolId} correctamente asociado al assistant ${vapiAssistantId}`);
-          this.logger.log(`✅ Los archivos del knowledge base ahora están seleccionados en el agente`);
-        } else {
-          this.logger.warn(`⚠️ Query Tool ${queryToolId} no se encontró después de actualizar. Verificar manualmente.`);
-        }
-      } else {
-        this.logger.log(`ℹ️ Query Tool ${queryToolId} ya estaba asociado al assistant ${vapiAssistantId}`);
-        this.logger.log(`✅ Los archivos del knowledge base ya están seleccionados en el agente`);
+      
+      // Si el schema no es compatible, no lanzar error (ya está marcado en syncKnowledgeBase)
+      if (patchResult.reason === 'unsupported_schema' || patchResult.reason === 'validation_rejected') {
+        this.logger.warn('Schema no compatible - requiere revisión manual');
+        return;
       }
-    } catch (error: any) {
-      this.logger.error(`❌ Error asociando Query Tool al assistant:`, {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-      throw error;
+      
+      // Para otros errores, lanzar excepción
+      throw new Error(`Failed to attach Query Tool: ${patchResult.reason}`);
     }
+    
+    this.logger.log('✅ Query Tool y archivos asociados correctamente vía helper');
   }
 }
 

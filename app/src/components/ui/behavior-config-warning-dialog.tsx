@@ -15,18 +15,16 @@ interface BehaviorConfigWarningDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onGoToBehavior: () => void;
-  onCancel: () => void;
 }
 
 export function BehaviorConfigWarningDialog({
   open,
   onOpenChange,
   onGoToBehavior,
-  onCancel,
 }: BehaviorConfigWarningDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-md w-full mx-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
@@ -52,23 +50,13 @@ export function BehaviorConfigWarningDialog({
           </ul>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              onCancel();
-              onOpenChange(false);
-            }}
-            className="w-full sm:w-auto"
-          >
-            Cancelar
-          </Button>
+        <DialogFooter>
           <Button
             onClick={() => {
               onGoToBehavior();
               onOpenChange(false);
             }}
-            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
+            className="w-full bg-purple-600 hover:bg-purple-700"
           >
             Ir a Configuración de Comportamiento
             <ArrowRight className="ml-2 h-4 w-4" />

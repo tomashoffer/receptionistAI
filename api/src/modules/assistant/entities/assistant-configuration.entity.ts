@@ -86,6 +86,9 @@ export class AssistantConfiguration {
   @Column({ type: 'text', nullable: true })
   vapiLastError: string;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  vapiSchemaType: string; // 'classic' | 'inline' | null
+
   @Column({ type: 'uuid', nullable: true })
   created_by: string;
 
