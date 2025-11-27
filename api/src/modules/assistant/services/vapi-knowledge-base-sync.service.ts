@@ -233,12 +233,20 @@ export class VapiKnowledgeBaseSyncService {
    * Sube un archivo a Vapi Files API desde una ruta de archivo temporal
    */
   private async uploadFileToVapi(filename: string, filePath: string): Promise<string> {
+    // ✅ Validación de seguridad: Limpiar nombre de archivo para evitar caracteres problemáticos
+    // Reemplazar caracteres no alfanuméricos (excepto puntos y guiones) con guiones bajos
+    const cleanFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    
+    if (cleanFilename !== filename) {
+      this.logger.warn(`⚠️ Nombre de archivo limpiado: "${filename}" → "${cleanFilename}"`);
+    }
+    
     const form = new FormData();
     const fileStream = fs.createReadStream(filePath);
     
     form.append('file', fileStream, {
-      filename,
-      contentType: filename.endsWith('.json') ? 'application/json' : 'text/markdown',
+      filename: cleanFilename,
+      contentType: cleanFilename.endsWith('.json') ? 'application/json' : 'text/markdown',
     });
 
     const response = await axios.post(`${this.VAPI_API_URL}/file`, form, {
