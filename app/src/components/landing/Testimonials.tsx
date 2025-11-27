@@ -35,7 +35,7 @@ export function Testimonials() {
 
       <div className="container mx-auto max-w-7xl relative z-10">
         <div className="text-center mb-16">
-          <h2 className="text-4xl lg:text-5xl text-white mb-4">
+          <h2 className="text-4xl lg:text-5xl text-white mb-4 dark-mode-black-text">
             Lo que dicen{" "}
             <span className="bg-gradient-to-r from-indigo-400 to-emerald-400 bg-clip-text text-transparent">
               nuestros clientes
@@ -57,7 +57,7 @@ export function Testimonials() {
               </div>
 
               {/* Quote */}
-              <p className="text-gray-300 leading-relaxed mb-8 text-lg">
+              <p className="text-gray-300 leading-relaxed mb-8 text-lg dark-mode-black-text">
                 "{testimonial.quote}"
               </p>
 
@@ -74,8 +74,8 @@ export function Testimonials() {
                   <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-gray-900"></div>
                 </div>
                 <div>
-                  <div className="text-white">{testimonial.name}</div>
-                  <div className="text-gray-300">{testimonial.role}</div>
+                  <div className="text-white dark-mode-black-text">{testimonial.name}</div>
+                  <div className="text-gray-300 dark-mode-black-text">{testimonial.role}</div>
                 </div>
               </div>
             </div>

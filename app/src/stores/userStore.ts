@@ -53,18 +53,21 @@ export type IndustryType =
   | 'hotel'
   | 'other';
 
+export type BusinessStatus = 'active' | 'inactive' | 'suspended' | 'trial' | 'paused';
+
 export interface Business {
   id: string;
   name: string;
   phone_number: string;
   industry: IndustryType;
-  status: string;
+  status: BusinessStatus;
   ai_prompt?: string;
   ai_voice_id?: string;
   ai_language?: string;
   vapi_assistant_id?: string;
   vapi_public_key?: string;
   business_hours?: any;
+  workingHours?: any; // Alias para compatibilidad
   services?: any[];
   google_calendar_config?: any;
   google_drive_config?: any;
@@ -73,6 +76,16 @@ export interface Business {
   updated_at: string;
   assistant_id?: string;
   assistant?: Assistant;
+  // Campos opcionales del business
+  description?: string;
+  email?: string;
+  address?: string;
+  website?: string;
+  stats?: {
+    conversations?: number;
+    appointments?: number;
+    automation?: number;
+  };
 }
 
 // STORE INTERFACE
@@ -102,13 +115,13 @@ interface UserStore {
 export const useUserStore = create<UserStore>()(
   devtools(
     persist(
-      (set) => ({
+      (set, get): UserStore => ({
         // Estado inicial
-        user: null,
+        user: null as User | null,
         isLoading: true,
         isLoggingOut: false,
-        businesses: [],
-        activeBusiness: null,
+        businesses: [] as Business[],
+        activeBusiness: null as Business | null,
         _hasHydrated: false,
         
         // Métodos de usuario
@@ -143,7 +156,7 @@ export const useUserStore = create<UserStore>()(
           activeBusiness: null 
         }),
         
-        getState: () => useUserStore.getState(),
+        getState: () => get(),
       }),
       {
         name: 'user-store-storage',

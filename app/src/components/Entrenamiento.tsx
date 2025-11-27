@@ -8,6 +8,7 @@ import { PageHeader } from './layout/PageHeader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { useUserStore } from '../stores/userStore';
 
 interface TrainingQuestion {
   id: number;
@@ -18,6 +19,7 @@ interface TrainingQuestion {
 }
 
 export function Entrenamiento() {
+  const { user } = useUserStore();
   const [questions, setQuestions] = useState<TrainingQuestion[]>([
     {
       id: 1,
@@ -68,7 +70,7 @@ export function Entrenamiento() {
         title={
           <div>
             <h1 className="text-lg md:text-xl lg:text-2xl">
-              Hola <span className="text-purple-600">Timothy</span>, bienvenido al centro de entrenamiento 💪
+              Hola <span className="text-purple-600">{user?.first_name || 'Usuario'}</span>, bienvenido al centro de entrenamiento 💪
             </h1>
           </div>
         }

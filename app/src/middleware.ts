@@ -54,6 +54,11 @@ export async function middleware(request: NextRequest) {
 
   const isPublicPath = publicPaths.includes(pathname);
 
+  // Permitir acceso a /register y /login siempre, incluso si hay sesión activa
+  // (el usuario puede querer crear otra cuenta o cambiar de cuenta)
+  if (pathname === '/register' || pathname === '/login') {
+    return NextResponse.next();
+  }
 
   // --- Prevent logged-in users from accessing public-only pages ---
   if (isPublicPath && pathname !== '/' && accessToken) {

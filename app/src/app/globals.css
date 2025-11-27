@@ -3379,6 +3379,10 @@
     color: var(--color-black);
   }
 
+  .dark .dark\:text-black-important {
+    color: var(--color-black) !important;
+  }
+
   @media (hover: hover) {
     .dark .dark\:hover\:text-black:hover {
       color: var(--color-black);

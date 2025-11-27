@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Megaphone, PlayCircle, Plus, Upload, Trash2, X, Image as ImageIcon, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Megaphone, PlayCircle, Plus, Upload, Trash2, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
@@ -12,7 +12,8 @@ import {
   DialogFooter,
 } from '../ui/dialog';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
-import { businessTypeContent, BusinessType } from '../../config/businessTypeContent';
+import { businessTypeContent, BusinessType } from '../../config/businessConfig/businessTypeContent';
+import { AccordionSection } from './shared/AccordionSection';
 
 interface AreaComun {
   id: number;
@@ -24,9 +25,12 @@ interface AreaComun {
 
 interface Props {
   businessType: BusinessType;
+  onProgressChange?: (progress: number) => void;
+  initialData?: any;
+  onDataChange?: (data: any) => void;
 }
 
-export function IntegracionFotosTab({ businessType }: Props) {
+export function IntegracionFotosTab({ businessType, onProgressChange, initialData, onDataChange }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['areas-comunes']));
   const [showAreaModal, setShowAreaModal] = useState(false);
   const [selectedTipoArea, setSelectedTipoArea] = useState('');
@@ -34,8 +38,17 @@ export function IntegracionFotosTab({ businessType }: Props) {
 
   const config = businessTypeContent[businessType].areasComunes;
   
-  const [areasComunes, setAreasComunes] = useState<AreaComun[]>(
-    config.areas.map((area, index) => ({
+  const [areasComunes, setAreasComunes] = useState<AreaComun[]>(() => {
+    if (initialData?.areasComunes && Array.isArray(initialData.areasComunes)) {
+      return initialData.areasComunes.map((area: any) => ({
+        id: area.id || 0,
+        tipo: area.tipo || '',
+        nombre: area.nombre || '',
+        descripcion: area.descripcion || '',
+        imagenes: area.imagenes || []
+      }));
+    }
+    return config.areas.map((area, index) => ({
       id: index + 1,
       tipo: area.tipo,
       nombre: area.nombre,
@@ -43,17 +56,107 @@ export function IntegracionFotosTab({ businessType }: Props) {
       imagenes: [
         'https://images.unsplash.com/photo-1678960591129-ff8db00462e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHBvb2wlMjBzd2ltbWluZ3xlbnwxfHx8fDE3NjI4MzYzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080'
       ]
-    }))
-  );
+    }));
+  });
 
-  const [fotosGenerales, setFotosGenerales] = useState([
+  // Hash para detectar cambios en areasComunes desde initialData
+  const areasComunesHash = useMemo(() => {
+    if (!initialData?.areasComunes || !Array.isArray(initialData.areasComunes) || initialData.areasComunes.length === 0) {
+      return '';
+    }
+    return JSON.stringify(
+      initialData.areasComunes
+        .map((area: any) => ({
+          id: area.id || 0,
+          tipo: area.tipo || '',
+          nombre: area.nombre || '',
+          descripcion: area.descripcion || '',
+          imagenes: area.imagenes || []
+        }))
+        .sort((a: any, b: any) => a.id - b.id)
+    );
+  }, [initialData?.areasComunes]);
+
+  const lastAreasComunesHashRef = useRef<string | null>(null);
+
+  // Sincronizar areasComunes cuando initialData cambia
+  useEffect(() => {
+    if (areasComunesHash === lastAreasComunesHashRef.current) {
+      return;
+    }
+
+    if (initialData?.areasComunes && Array.isArray(initialData.areasComunes) && initialData.areasComunes.length > 0) {
+      setAreasComunes(
+        initialData.areasComunes.map((area: any) => ({
+          id: area.id || 0,
+          tipo: area.tipo || '',
+          nombre: area.nombre || '',
+          descripcion: area.descripcion || '',
+          imagenes: area.imagenes || []
+        }))
+      );
+    } else {
+      // Si no hay initialData, usar defaults
+      setAreasComunes(
+        config.areas.map((area, index) => ({
+          id: index + 1,
+          tipo: area.tipo,
+          nombre: area.nombre,
+          descripcion: area.descripcion,
+          imagenes: [
+            'https://images.unsplash.com/photo-1678960591129-ff8db00462e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHBvb2wlMjBzd2ltbWluZ3xlbnwxfHx8fDE3NjI4MzYzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080'
+          ]
+        }))
+      );
+    }
+    lastAreasComunesHashRef.current = areasComunesHash;
+  }, [areasComunesHash, initialData?.areasComunes, config.areas]);
+
+  const [fotosGenerales, setFotosGenerales] = useState<string[]>(() => {
+    if (initialData?.fotosGenerales && Array.isArray(initialData.fotosGenerales)) {
+      return initialData.fotosGenerales;
+    }
+    return [
     'https://images.unsplash.com/photo-1678960591129-ff8db00462e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHBvb2wlMjBzd2ltbWluZ3xlbnwxfHx8fDE3NjI4MzYzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080',
     'https://images.unsplash.com/photo-1762421028657-347de51e7707?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3J8ZW58MXx8fHwxNzYyNzg5NDI0fDA&ixlib=rb-4.1.0&q=80&w=1080',
     'https://images.unsplash.com/photo-1740711165973-7989bc31f0d4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHJlc3RhdXJhbnQlMjBkaW5pbmd8ZW58MXx8fHwxNzYyODE3NDQ2fDA&ixlib=rb-4.1.0&q=80&w=1080',
     'https://images.unsplash.com/photo-1589443994465-6e59e5a2aed4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHNwYSUyMGx1eHVyeXxlbnwxfHx8fDE3NjI3MzgxNjZ8MA&ixlib=rb-4.1.0&q=80&w=1080',
     'https://images.unsplash.com/photo-1648766378129-11c3d8d0da05?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHJvb20lMjBiZWR8ZW58MXx8fHwxNzYyNzUwNjQ2fDA&ixlib=rb-4.1.0&q=80&w=1080',
     'https://images.unsplash.com/photo-1734356972273-f19d4eac8c7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMGxvYmJ5JTIwZW50cmFuY2V8ZW58MXx8fHwxNjI4MzY0MDEfDA&ixlib=rb-4.1.0&q=80&w=1080'
-  ]);
+    ];
+  });
+
+  // Hash para detectar cambios en fotosGenerales desde initialData
+  const fotosGeneralesHash = useMemo(() => {
+    if (!initialData?.fotosGenerales || !Array.isArray(initialData.fotosGenerales) || initialData.fotosGenerales.length === 0) {
+      return '';
+    }
+    return JSON.stringify(initialData.fotosGenerales);
+  }, [initialData?.fotosGenerales]);
+
+  const lastFotosGeneralesHashRef = useRef<string | null>(null);
+
+  // Sincronizar fotosGenerales cuando initialData cambia
+  useEffect(() => {
+    if (fotosGeneralesHash === lastFotosGeneralesHashRef.current) {
+      return;
+    }
+
+    if (initialData?.fotosGenerales && Array.isArray(initialData.fotosGenerales) && initialData.fotosGenerales.length > 0) {
+      setFotosGenerales(initialData.fotosGenerales);
+    } else {
+      // Si no hay initialData, usar defaults
+      setFotosGenerales([
+        'https://images.unsplash.com/photo-1678960591129-ff8db00462e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHBvb2wlMjBzd2ltbWluZ3xlbnwxfHx8fDE3NjI4MzYzOTh8MA&ixlib=rb-4.1.0&q=80&w=1080',
+        'https://images.unsplash.com/photo-1762421028657-347de51e7707?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMGJ1aWxkaW5nJTIwZXh0ZXJpb3J8ZW58MXx8fHwxNzYyNzg5NDI0fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        'https://images.unsplash.com/photo-1740711165973-7989bc31f0d4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHJlc3RhdXJhbnQlMjBkaW5pbmd8ZW58MXx8fHwxNzYyODE3NDQ2fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        'https://images.unsplash.com/photo-1589443994465-6e59e5a2aed4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHNwYSUyMGx1eHVyeXxlbnwxfHx8fDE3NjI3MzgxNjZ8MA&ixlib=rb-4.1.0&q=80&w=1080',
+        'https://images.unsplash.com/photo-1648766378129-11c3d8d0da05?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMHJvb20lMjBiZWR8ZW58MXx8fHwxNzYyNzUwNjQ2fDA&ixlib=rb-4.1.0&q=80&w=1080',
+        'https://images.unsplash.com/photo-1734356972273-f19d4eac8c7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob3RlbCUyMGxvYmJ5JTIwZW50cmFuY2V8ZW58MXx8fHwxNjI4MzY0MDEfMA&ixlib=rb-4.1.0&q=80&w=1080'
+      ]);
+    }
+    lastFotosGeneralesHashRef.current = fotosGeneralesHash;
+  }, [fotosGeneralesHash, initialData?.fotosGenerales]);
 
   const toggleSection = (id: string) => {
     const newExpanded = new Set(expandedSections);
@@ -86,6 +189,61 @@ export function IntegracionFotosTab({ businessType }: Props) {
       [areaId]: ((prev[areaId] || 0) - 1 + totalImages) % totalImages
     }));
   };
+
+  // Usar ref para almacenar el callback y evitar loops infinitos
+  const onProgressChangeRef = useRef(onProgressChange);
+  useEffect(() => {
+    onProgressChangeRef.current = onProgressChange;
+  }, [onProgressChange]);
+
+  // Calcular progreso
+  useEffect(() => {
+    if (!onProgressChangeRef.current) return;
+
+    let totalItems = 0;
+    let completedItems = 0;
+
+    // Contar áreas comunes con fotos (al menos 1 foto por área)
+    totalItems += areasComunes.length;
+    areasComunes.forEach(area => {
+      if (area.imagenes.length > 0) {
+        completedItems++;
+      }
+    });
+
+    // Contar fotos generales (mínimo 5 fotos)
+    const minFotosGenerales = 5;
+    totalItems += 1; // 1 item para fotos generales
+    if (fotosGenerales.length >= minFotosGenerales) {
+      completedItems++;
+    }
+
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    onProgressChangeRef.current(progress);
+  }, [areasComunes, fotosGenerales]);
+
+  // Reportar cambios al padre
+  const onDataChangeRef = useRef(onDataChange);
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
+
+  useEffect(() => {
+    if (!onDataChangeRef.current) return;
+
+    const currentData = {
+      areasComunes: areasComunes.map(area => ({
+        id: area.id,
+        tipo: area.tipo,
+        nombre: area.nombre,
+        descripcion: area.descripcion,
+        imagenes: area.imagenes,
+      })),
+      fotosGenerales: fotosGenerales,
+    };
+
+    onDataChangeRef.current(currentData);
+  }, [areasComunes, fotosGenerales]);
 
   const handleUploadImage = (areaId: number) => {
     const input = document.createElement('input');
@@ -151,24 +309,14 @@ export function IntegracionFotosTab({ businessType }: Props) {
       </div>
 
       {/* ÁREAS COMUNES DEL ESTABLECIMIENTO */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('areas-comunes')}
-          className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors border-l-4 border-l-purple-500"
-        >
-          <div className="flex items-center gap-3">
-            {expandedSections.has('areas-comunes') ? (
-              <ChevronDown className="w-5 h-5 text-gray-600" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            )}
-            <span className="text-gray-900">Áreas Comunes del Establecimiento</span>
-          </div>
-          <span className="text-sm text-gray-500">{areasComunes.length} áreas configuradas</span>
-        </button>
-
-        {expandedSections.has('areas-comunes') && (
-          <div className="p-4 md:p-6 border-t border-gray-200 bg-gray-50">
+      <AccordionSection
+        id="areas-comunes"
+        title="Áreas Comunes del Establecimiento"
+        isExpanded={expandedSections.has('areas-comunes')}
+        onToggle={() => toggleSection('areas-comunes')}
+        borderColor="border-l-purple-500"
+        customCount={`${areasComunes.length} áreas configuradas`}
+      >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {areasComunes.map((area) => (
                 <div key={area.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -275,28 +423,16 @@ export function IntegracionFotosTab({ businessType }: Props) {
               <Plus className="w-4 h-4 mr-2" />
               Agregar Área Común
             </Button>
-          </div>
-        )}
-      </div>
+      </AccordionSection>
 
       {/* INFORMACIÓN DE ÁREA ESPECÍFICA */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('area-especifica')}
-          className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors border-l-4 border-l-purple-500"
-        >
-          <div className="flex items-center gap-3">
-            {expandedSections.has('area-especifica') ? (
-              <ChevronDown className="w-5 h-5 text-gray-600" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            )}
-            <span className="text-gray-900">Información de Área Específica</span>
-          </div>
-        </button>
-
-        {expandedSections.has('area-especifica') && (
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
+      <AccordionSection
+        id="area-especifica"
+        title="Información de Área Específica"
+        isExpanded={expandedSections.has('area-especifica')}
+        onToggle={() => toggleSection('area-especifica')}
+        borderColor="border-l-purple-500"
+      >
             <p className="text-sm text-gray-600 mb-4">
               Aquí puedes agregar información más detallada sobre áreas específicas de tu establecimiento.
             </p>
@@ -305,29 +441,17 @@ export function IntegracionFotosTab({ businessType }: Props) {
               rows={4}
               className="bg-white"
             />
-          </div>
-        )}
-      </div>
+      </AccordionSection>
 
       {/* FOTOS GENERALES */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => toggleSection('fotos-generales')}
-          className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors border-l-4 border-l-purple-500"
-        >
-          <div className="flex items-center gap-3">
-            {expandedSections.has('fotos-generales') ? (
-              <ChevronDown className="w-5 h-5 text-gray-600" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            )}
-            <span className="text-gray-900">Fotos Generales</span>
-          </div>
-          <span className="text-sm text-gray-500">{fotosGenerales.length} fotos</span>
-        </button>
-
-        {expandedSections.has('fotos-generales') && (
-          <div className="p-4 md:p-6 border-t border-gray-200 bg-gray-50">
+      <AccordionSection
+        id="fotos-generales"
+        title="Fotos Generales"
+        isExpanded={expandedSections.has('fotos-generales')}
+        onToggle={() => toggleSection('fotos-generales')}
+        borderColor="border-l-purple-500"
+        customCount={`${fotosGenerales.length} fotos`}
+      >
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-4">
               {fotosGenerales.map((foto, index) => (
                 <div key={index} className="relative group aspect-video bg-gray-100 rounded-lg overflow-hidden">
@@ -347,9 +471,7 @@ export function IntegracionFotosTab({ businessType }: Props) {
               <Upload className="w-4 h-4 mr-2" />
               Subir Fotos Generales
             </Button>
-          </div>
-        )}
-      </div>
+      </AccordionSection>
 
       {/* Modal para seleccionar tipo de área común */}
       <Dialog open={showAreaModal} onOpenChange={setShowAreaModal}>

@@ -7,6 +7,7 @@ import { VoiceWebhookController } from './voice-webhook.controller';
 import { VoiceService } from './voice.service';
 import { VoiceGateway } from './voice.gateway';
 import { VoiceInteractionEntity } from './voice-interaction.entity';
+import { Business } from '../business/entities/business.entity';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { SharedModule } from '../../shared/shared.module';
 import { VapiService } from './vapi.service';
@@ -16,7 +17,7 @@ import { BusinessModule } from '../business/business.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([VoiceInteractionEntity]),
+    TypeOrmModule.forFeature([VoiceInteractionEntity, Business]),
     AppointmentsModule,
     forwardRef(() => AssistantModule),
     forwardRef(() => BusinessModule),

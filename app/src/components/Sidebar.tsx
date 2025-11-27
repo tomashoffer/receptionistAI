@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { useUserStore } from '../stores/userStore';
 
 interface NavItem {
   icon: any;
@@ -34,6 +35,7 @@ interface NavSection {
 }
 
 export function Sidebar({ activeView, setActiveView }: { activeView: string; setActiveView: (view: string) => void }) {
+  const { user } = useUserStore();
   
   const navSections: NavSection[] = [
     {
@@ -154,11 +156,13 @@ export function Sidebar({ activeView, setActiveView }: { activeView: string; set
       <div className="p-4 border-t border-gray-200">
         <button className="w-full flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 -m-2">
           <Avatar className="w-9 h-9">
-            <AvatarFallback className="bg-orange-500 text-white">T</AvatarFallback>
+            <AvatarFallback className="bg-orange-500 text-white">
+              {user?.first_name?.charAt(0).toUpperCase() || 'U'}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 text-left">
-            <p className="text-sm">Timothy</p>
-            <p className="text-xs text-gray-500">TAMB@RANDLE.ID</p>
+            <p className="text-sm">{user?.first_name || 'Usuario'}</p>
+            <p className="text-xs text-gray-500">{user?.email || ''}</p>
           </div>
           <ChevronRight className="w-4 h-4 text-gray-400" />
         </button>

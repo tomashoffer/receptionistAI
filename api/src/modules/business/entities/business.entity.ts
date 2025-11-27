@@ -68,9 +68,6 @@ export class Business {
   })
   industry: Industry;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  rubro: string;
-
   @Column({ 
     type: 'enum', 
     enum: BusinessStatus,

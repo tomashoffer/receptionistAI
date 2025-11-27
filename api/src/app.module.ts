@@ -18,6 +18,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
 import { ElevenlabsModule } from './modules/elevenlabs/elevenlabs.module';
 import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.module';
 import { UtilsModule } from './modules/utils/utils.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -28,6 +29,14 @@ import { UtilsModule } from './modules/utils/utils.module';
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true,
+    }),
+
+    // Bull Queue Module para jobs asíncronos
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      },
     }),
 
     // Asynchronously configure TypeORM using the ApiConfigService.

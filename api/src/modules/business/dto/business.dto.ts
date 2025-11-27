@@ -28,10 +28,6 @@ export class CreateBusinessDto {
 
   @IsOptional()
   @IsString()
-  rubro?: string;
-
-  @IsOptional()
-  @IsString()
   ai_prompt?: string;
 }
 
@@ -42,15 +38,31 @@ export class UpdateBusinessDto {
 
   @IsOptional()
   @IsString()
+  phone_number?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  website?: string;
+
+  @IsOptional()
+  @IsString()
+  industry?: string;
 
   @IsOptional()
   @IsString()
   ai_prompt?: string;
-
-  @IsOptional()
-  @IsString()
-  rubro?: string;
 
   @IsOptional()
   @IsString()
@@ -63,5 +75,9 @@ export class UpdateBusinessDto {
   @IsOptional()
   @IsString()
   assistant_id?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 

@@ -1,28 +1,125 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Megaphone, PlayCircle } from 'lucide-react';
-import { Textarea } from '../ui/textarea';
-import { Label } from '../ui/label';
-import { businessTypeContent, BusinessType } from '../../config/businessTypeContent';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Megaphone, PlayCircle } from 'lucide-react';
+import { Button } from '../ui/button';
+import { businessTypeContent, BusinessType } from '../../config/businessConfig/businessTypeContent';
+import { SectionWithQuestions } from './shared/SectionWithQuestions';
 
 interface Props {
   businessType: BusinessType;
+  onProgressChange?: (progress: number) => void;
+  initialData?: any;
+  onDataChange?: (data: any) => void;
 }
 
-export function InformacionExtraTab({ businessType }: Props) {
+export function InformacionExtraTab({ businessType, onProgressChange, initialData, onDataChange }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const content = businessTypeContent[businessType].informacionExtra;
 
-  // Initialize state dynamically
-  const [formData, setFormData] = useState<Record<string, Record<string, string>>>(() => {
-    const initialData: Record<string, Record<string, string>> = {};
-    Object.keys(content).forEach(sectionKey => {
-      initialData[sectionKey] = {};
-      content[sectionKey].questions.forEach((q, index) => {
-        initialData[sectionKey][`respuesta${index + 1}`] = q.defaultValue;
+  // Helper para construir formData desde initialData o defaults
+  const buildFormData = (data: any, contentSections: any): Record<string, Record<string, string>> => {
+    if (data && Object.keys(data).length > 0) {
+      // Si hay initialData, usarlo
+      const result: Record<string, Record<string, string>> = {};
+      Object.keys(data).forEach(sectionKey => {
+        if (data[sectionKey]?.questions && Array.isArray(data[sectionKey].questions)) {
+          result[sectionKey] = {};
+          data[sectionKey].questions.forEach((q: any, index: number) => {
+            result[sectionKey][`respuesta${index + 1}`] = q.respuesta || q.defaultValue || '';
+          });
+        }
+      });
+      if (Object.keys(result).length > 0) return result;
+    }
+    // Si no hay initialData, usar defaults
+    const defaultData: Record<string, Record<string, string>> = {};
+    Object.keys(contentSections).forEach(sectionKey => {
+      defaultData[sectionKey] = {};
+      contentSections[sectionKey].questions.forEach((q: any, index: number) => {
+        defaultData[sectionKey][`respuesta${index + 1}`] = q.defaultValue || '';
       });
     });
-    return initialData;
+    return defaultData;
+  };
+
+  // Initialize state dynamically from initialData or defaults
+  const [formData, setFormData] = useState<Record<string, Record<string, string>>>(() => {
+    return buildFormData(initialData, content);
   });
+
+  // Hash para detectar cambios en formData desde initialData
+  const formDataHash = useMemo(() => {
+    if (!initialData || Object.keys(initialData).length === 0) return '';
+    return JSON.stringify(
+      Object.keys(initialData)
+        .filter(key => key !== 'revisadoData')
+        .map(sectionKey => ({
+          key: sectionKey,
+          questions: (initialData[sectionKey]?.questions || []).map((q: any, index: number) => ({
+            index: index + 1,
+            respuesta: q.respuesta || '',
+          }))
+        }))
+        .sort((a: any, b: any) => a.key.localeCompare(b.key))
+    );
+  }, [initialData]);
+
+  const lastFormDataHashRef = useRef<string | null>(null);
+
+  // Sincronizar formData cuando initialData cambia
+  useEffect(() => {
+    if (formDataHash === lastFormDataHashRef.current) {
+      return;
+    }
+
+    const newFormData = buildFormData(initialData, content);
+    setFormData(newFormData);
+    lastFormDataHashRef.current = formDataHash;
+  }, [formDataHash, initialData, content]);
+
+  // Initialize revisado state (all false by default)
+  const [revisadoData, setRevisadoData] = useState<Record<string, Record<string, boolean>>>(() => {
+    if (initialData?.revisadoData) {
+      return initialData.revisadoData;
+    }
+    const defaultRevisado: Record<string, Record<string, boolean>> = {};
+    Object.keys(content).forEach(sectionKey => {
+      defaultRevisado[sectionKey] = {};
+      content[sectionKey].questions.forEach((q, index) => {
+        defaultRevisado[sectionKey][`respuesta${index + 1}`] = false;
+      });
+    });
+    return defaultRevisado;
+  });
+
+  // Hash para detectar cambios en revisadoData desde initialData
+  const revisadoDataHash = useMemo(() => {
+    if (!initialData?.revisadoData) return '';
+    return JSON.stringify(initialData.revisadoData);
+  }, [initialData?.revisadoData]);
+
+  const lastRevisadoDataHashRef = useRef<string | null>(null);
+
+  // Sincronizar revisadoData cuando initialData cambia
+  useEffect(() => {
+    if (revisadoDataHash === lastRevisadoDataHashRef.current) {
+      return;
+    }
+
+    if (initialData?.revisadoData) {
+      setRevisadoData(initialData.revisadoData);
+    } else {
+      // Si no hay initialData, usar defaults
+      const defaultRevisado: Record<string, Record<string, boolean>> = {};
+      Object.keys(content).forEach(sectionKey => {
+        defaultRevisado[sectionKey] = {};
+        content[sectionKey].questions.forEach((q, index) => {
+          defaultRevisado[sectionKey][`respuesta${index + 1}`] = false;
+        });
+      });
+      setRevisadoData(defaultRevisado);
+    }
+    lastRevisadoDataHashRef.current = revisadoDataHash;
+  }, [revisadoDataHash, initialData?.revisadoData, content]);
 
   const toggleSection = (id: string) => {
     const newExpanded = new Set(expandedSections);
@@ -44,8 +141,114 @@ export function InformacionExtraTab({ businessType }: Props) {
     }));
   };
 
+  const toggleRevisado = (section: string, field: string) => {
+    setRevisadoData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: !prev[section]?.[field]
+      }
+    }));
+  };
+
+  // Verificar si todo está marcado como revisado
+  const isAllReviewed = useMemo(() => {
+    // Verificar todas las respuestas de todas las secciones
+    return Object.keys(content).every(sectionKey => {
+      const section = content[sectionKey];
+      return section.questions.every((q, index) => {
+        const fieldKey = `respuesta${index + 1}`;
+        return revisadoData[sectionKey]?.[fieldKey] === true;
+      });
+    });
+  }, [revisadoData, content]);
+
+  // Función para marcar/desmarcar todo como revisado
+  const toggleAllAsReviewed = () => {
+    const shouldMark = !isAllReviewed;
+    
+    // Marcar/desmarcar todas las respuestas de todas las secciones
+    setRevisadoData(prev => {
+      const updated = { ...prev };
+      Object.keys(content).forEach(sectionKey => {
+        updated[sectionKey] = {};
+        content[sectionKey].questions.forEach((q, index) => {
+          updated[sectionKey][`respuesta${index + 1}`] = shouldMark;
+        });
+      });
+      return updated;
+    });
+  };
+
+  // Usar ref para almacenar el callback y evitar loops infinitos
+  const onProgressChangeRef = useRef(onProgressChange);
+  useEffect(() => {
+    onProgressChangeRef.current = onProgressChange;
+  }, [onProgressChange]);
+
+  // Calcular progreso
+  useEffect(() => {
+    if (!onProgressChangeRef.current) return;
+
+    let totalItems = 0;
+    let completedItems = 0;
+
+    // Contar preguntas revisadas en secciones
+    Object.keys(content).forEach((sectionKey) => {
+      const section = content[sectionKey];
+      totalItems += section.questions.length;
+      section.questions.forEach((q, index) => {
+        const fieldKey = `respuesta${index + 1}`;
+        if (revisadoData[sectionKey]?.[fieldKey] === true) {
+          completedItems++;
+        }
+      });
+    });
+
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    onProgressChangeRef.current(progress);
+  }, [revisadoData, content]);
+
+  // Reportar cambios al padre
+  const onDataChangeRef = useRef(onDataChange);
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
+
+  useEffect(() => {
+    if (!onDataChangeRef.current) return;
+
+    const currentData: Record<string, any> = {};
+    Object.keys(content).forEach(sectionKey => {
+      currentData[sectionKey] = {
+        title: content[sectionKey].title,
+        questions: content[sectionKey].questions.map((q, index) => ({
+          pregunta: q.pregunta,
+          placeholder: q.placeholder,
+          defaultValue: formData[sectionKey]?.[`respuesta${index + 1}`] || q.defaultValue,
+          respuesta: formData[sectionKey]?.[`respuesta${index + 1}`] || q.defaultValue,
+        })),
+      };
+    });
+    currentData.revisadoData = revisadoData;
+
+    onDataChangeRef.current(currentData);
+  }, [formData, revisadoData, content]);
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      {/* Header con botón de marcar todo */}
+      <div className="flex items-center justify-end mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleAllAsReviewed}
+          className="text-xs md:text-sm"
+        >
+          {isAllReviewed ? 'Desmarcar todo' : 'Marcar todo como revisado'}
+        </Button>
+      </div>
+
       {/* Importante Section */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 md:p-6">
         <div className="flex items-start gap-4">
@@ -72,46 +275,23 @@ export function InformacionExtraTab({ businessType }: Props) {
       {/* Dynamic Sections */}
       {Object.keys(content).map((sectionKey) => {
         const section = content[sectionKey];
-        const questionCount = section.questions.length;
+        const sectionData = formData[sectionKey] || {};
+        const sectionRevisado = revisadoData[sectionKey] || {};
         
         return (
-          <div key={sectionKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <button
-              onClick={() => toggleSection(sectionKey)}
-              className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors border-l-4 border-l-blue-500"
-            >
-              <div className="flex items-center gap-3">
-                {expandedSections.has(sectionKey) ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                )}
-                <span className="text-gray-900">{section.title}</span>
-              </div>
-              <span className="text-sm text-gray-500">{questionCount}/{questionCount} preguntas</span>
-            </button>
-
-            {expandedSections.has(sectionKey) && (
-              <div className="p-6 border-t border-gray-200 bg-gray-50 space-y-6">
-                {section.questions.map((question, index) => {
-                  const fieldKey = `respuesta${index + 1}`;
-                  
-                  return (
-                    <div key={index} className="space-y-2">
-                      <Label className="text-gray-700">{question.pregunta}</Label>
-                      <Textarea 
-                        placeholder={question.placeholder}
-                        value={formData[sectionKey]?.[fieldKey] || ''}
-                        onChange={(e) => updateField(sectionKey, fieldKey, e.target.value)}
-                        rows={3}
-                        className="bg-white"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <SectionWithQuestions
+            key={sectionKey}
+            sectionKey={sectionKey}
+            title={section.title}
+            questions={section.questions}
+            formData={sectionData}
+            revisadoData={sectionRevisado}
+            isExpanded={expandedSections.has(sectionKey)}
+            onToggle={() => toggleSection(sectionKey)}
+            onUpdate={(fieldKey, value) => updateField(sectionKey, fieldKey, value)}
+            onToggleRevisado={(fieldKey) => toggleRevisado(sectionKey, fieldKey)}
+            borderColor="border-l-blue-500"
+          />
         );
       })}
 

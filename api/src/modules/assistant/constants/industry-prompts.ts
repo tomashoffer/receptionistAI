@@ -1,7 +1,6 @@
 export interface BusinessData {
   name: string;
   industry: string;
-  rubro?: string;
   phone_number?: string;
   address?: string;
   email?: string;
@@ -15,11 +14,7 @@ export interface BusinessData {
 function generateBusinessDescription(business: BusinessData): string {
   const businessName = business.name ? `el/la recepcionista de ${business.name}` : 'un/a recepcionista profesional';
   
-  if (business.rubro) {
-    return `${businessName}, especializado/a en ${business.rubro}.`;
-  }
-  
-  // Fallback a descripciones por industria si no hay rubro
+  // Usar descripciones por industria
   const industryDescriptions: { [key: string]: string } = {
     'hair_salon': 'una peluquería que brinda servicios de belleza y cuidado capilar',
     'restaurant': 'un restaurante que ofrece experiencias gastronómicas excepcionales',

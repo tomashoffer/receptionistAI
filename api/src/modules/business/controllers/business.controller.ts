@@ -7,7 +7,7 @@ import {
   Param, 
   Delete,
   HttpCode,
-  HttpStatus
+  HttpStatus,
 } from '@nestjs/common';
 import { BusinessService } from '../services/business.service';
 import { CreateBusinessDto, UpdateBusinessDto } from '../dto/business.dto';

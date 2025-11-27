@@ -6,7 +6,7 @@ import { Bot } from "lucide-react";
 
 export function FinalCTA() {
   return (
-    <section className="py-24 px-4 relative overflow-hidden bg-gradient-to-br from-indigo-50 to-emerald-50">
+    <section className="py-24 px-4 relative overflow-hidden bg-white">
       {/* Background effects */}
       <div className="absolute inset-0 opacity-30">
         <div className="absolute top-1/2 left-1/4 w-96 h-96 bg-indigo-500/30 rounded-full blur-3xl"></div>

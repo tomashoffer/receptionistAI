@@ -101,7 +101,7 @@ export function AssistantConfigView() {
             <div>
               <CardTitle>System Prompt (Core)</CardTitle>
               <CardDescription>
-                Instrucciones base para el comportamiento del asistente
+                Instrucciones base para el 
               </CardDescription>
             </div>
             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">

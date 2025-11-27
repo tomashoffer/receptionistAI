@@ -9,7 +9,7 @@ interface HeroProps {
 
 export function Hero({ onNavigate }: HeroProps) {
   return (
-    <section className="relative overflow-hidden px-4 py-20 lg:py-32 bg-gradient-to-b from-white to-gray-50">
+    <section className="relative overflow-hidden px-4 py-20 lg:py-32 bg-white">
       {/* Subtle geometric background */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute top-20 left-10 w-64 h-64 bg-indigo-500 rounded-full blur-3xl"></div>
@@ -64,7 +64,12 @@ export function Hero({ onNavigate }: HeroProps) {
                 size="lg"
                 variant="outline"
                 className="border-gray-200 text-indigo-600 hover:bg-indigo-50"
-                onClick={() => onNavigate?.("login")}
+                onClick={() => {
+                  const pricingSection = document.getElementById('pricing');
+                  if (pricingSection) {
+                    pricingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
               >
                 Ver planes y precios
               </Button>
@@ -95,7 +100,7 @@ export function Hero({ onNavigate }: HeroProps) {
                     <div className="flex items-start gap-3">
                       <MessageSquare className="w-5 h-5 text-indigo-600 mt-1" />
                       <div>
-                        <p className="text-gray-900">¡Hola! ¿En qué puedo ayudarte hoy?</p>
+                        <p className="text-gray-900 dark-mode-black-text">¡Hola! ¿En qué puedo ayudarte hoy?</p>
                       </div>
                     </div>
                   </div>

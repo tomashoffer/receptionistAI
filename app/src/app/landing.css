@@ -2345,6 +2345,10 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+.dark .landing-theme .dark-mode-black-text {
+  color: #000000 !important;
+}
   
   @property --tw-translate-x {
     syntax: "*";

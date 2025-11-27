@@ -13,7 +13,7 @@ import { DashboardBI } from './DashboardBI';
 import { useLayout } from '../contexts/LayoutContext';
 
 export function Dashboard() {
-  const { activeBusiness } = useUserStore();
+  const { activeBusiness, user } = useUserStore();
   const { openMobileMenu } = useLayout();
 
   return (
@@ -118,10 +118,10 @@ export function Dashboard() {
               
               <h1 className="header-title font-medium">
                 <span className="welcome-text-short">
-                  Hola <span className="text-purple-600">Timothy</span> 👋
+                  Hola <span className="text-purple-600">{user?.first_name || 'Usuario'}</span> 👋
                 </span>
                 <span className="welcome-text-full">
-                  Hola <span className="text-purple-600">Timothy</span>, bienvenido de nuevo 👋
+                  Hola <span className="text-purple-600">{user?.first_name || 'Usuario'}</span>, bienvenido de nuevo 👋
                 </span>
               </h1>
             </div>

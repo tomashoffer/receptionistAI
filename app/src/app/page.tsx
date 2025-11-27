@@ -33,7 +33,7 @@ export default function App() {
   };
 
   return (
-    <div className="landing-theme min-h-screen bg-white">
+    <div className="landing-theme min-h-screen">
       <Header onNavigate={handleNavigate} />
       <Hero onNavigate={handleNavigate} />
       <LogosSection />
