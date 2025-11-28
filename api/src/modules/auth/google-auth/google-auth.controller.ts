@@ -78,7 +78,7 @@ export class GoogleAuthController {
     }
 
     // Redirect the user directly to the dashboard after successful login.
-    const frontendUrl = this.apiConfigService.frontendUrl();
+    const frontendUrl = this.apiConfigService.frontendUrl;
     console.log(`[GoogleAuth] Redirigiendo a: ${frontendUrl}/dashboard`);
     res.redirect(`${frontendUrl}/dashboard`);
   }
