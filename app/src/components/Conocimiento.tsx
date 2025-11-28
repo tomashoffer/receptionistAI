@@ -1322,8 +1322,8 @@ export function Conocimiento() {
               }
             >
               {activeBusiness?.assistant_id ? 'Actualizar' : 'Crear Asistente'}
-            </Button>
-          </div>
+        </Button>
+      </div>
         </div>
       )}
 
