@@ -57,12 +57,14 @@ export class GoogleAuthController {
 
     // Set the access token cookie with the correct domain and SameSite attributes.
     // IMPORTANTE: usar 'access_token' (no 'accessToken') porque el JwtStrategy lo busca así
+    // El domain debe ser .pedidosatr.com (con punto inicial) para que funcione en todos los subdominios
     res.cookie('access_token', accessToken, {
       httpOnly: true,
       secure: isCookieSecure,
       sameSite: 'lax', 
       maxAge: 7 * 24 * 3600 * 1000,
-      path: '/', 
+      path: '/',
+      domain: cookieDomain, // Permite que la cookie funcione en todos los subdominios
     });
     
 
@@ -73,7 +75,8 @@ export class GoogleAuthController {
         secure: isCookieSecure,
         sameSite: 'lax',
         maxAge: 7 * 24 * 3600 * 1000,
-        path: '/', 
+        path: '/',
+        domain: cookieDomain, // Permite que la cookie funcione en todos los subdominios
       });
     }
 
