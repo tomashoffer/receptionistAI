@@ -3,48 +3,48 @@
 
 $ErrorActionPreference = "Stop"
 
-# Configuración
+# Configuracion
 $SSH_HOST = "137.131.174.209"
 $SSH_USER = "ubuntu"
 $SSH_KEY = "$env:USERPROFILE\Desktop\ssh-key-2025-11-14.key"
 $PROJECT_PATH = "~/receptionistAI-main"
 $BACKEND_SERVICE = "receptionistai.service"
 
-Write-Host "🚀 Iniciando deploy del backend..." -ForegroundColor Cyan
+Write-Host "Iniciando deploy del backend..." -ForegroundColor Cyan
 Write-Host ""
 
 # Paso 1: Verificar que estamos en el directorio correcto
 if (-not (Test-Path "api\package.json")) {
-    Write-Host "❌ Error: No se encontró api\package.json" -ForegroundColor Red
-    Write-Host "   Asegúrate de ejecutar este script desde la raíz del proyecto" -ForegroundColor Yellow
+    Write-Host "Error: No se encontro api\package.json" -ForegroundColor Red
+    Write-Host "   Asegurate de ejecutar este script desde la raiz del proyecto" -ForegroundColor Yellow
     exit 1
 }
 
 # Paso 2: Verificar que existe la clave SSH
 if (-not (Test-Path $SSH_KEY)) {
-    Write-Host "❌ Error: No se encontró la clave SSH en: $SSH_KEY" -ForegroundColor Red
+    Write-Host "Error: No se encontro la clave SSH en: $SSH_KEY" -ForegroundColor Red
     Write-Host "   Por favor, verifica la ruta de la clave SSH" -ForegroundColor Yellow
     exit 1
 }
 
 # Paso 3: Build del backend
-Write-Host "📦 Compilando backend..." -ForegroundColor Cyan
+Write-Host "Compilando backend..." -ForegroundColor Cyan
 Set-Location api
 
 try {
     npm run build
     if ($LASTEXITCODE -ne 0) {
-        throw "Build falló con código $LASTEXITCODE"
+        throw "Build fallo con codigo $LASTEXITCODE"
     }
-    Write-Host "✅ Build completado" -ForegroundColor Green
+    Write-Host "Build completado" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Error al compilar: $_" -ForegroundColor Red
+    Write-Host "Error al compilar: $_" -ForegroundColor Red
     Set-Location ..
     exit 1
 }
 
 # Paso 4: Crear archivo tar.gz
-Write-Host "📦 Creando archivo comprimido..." -ForegroundColor Cyan
+Write-Host "Creando archivo comprimido..." -ForegroundColor Cyan
 Set-Location ..
 
 # Limpiar archivo anterior si existe
@@ -52,77 +52,64 @@ if (Test-Path "api-dist.tar.gz") {
     Remove-Item "api-dist.tar.gz" -Force
 }
 
-# Crear tar.gz (usando tar de Windows 10+ o 7zip)
+# Crear tar.gz
 try {
-    # Intentar con tar nativo de Windows
     tar -czf api-dist.tar.gz -C api dist
     if ($LASTEXITCODE -ne 0) {
         throw "Error al crear tar.gz"
     }
-    Write-Host "✅ Archivo api-dist.tar.gz creado" -ForegroundColor Green
+    Write-Host "Archivo api-dist.tar.gz creado" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Error al crear tar.gz: $_" -ForegroundColor Red
-    Write-Host "   Asegúrate de tener tar instalado (Windows 10+ lo incluye)" -ForegroundColor Yellow
+    Write-Host "Error al crear tar.gz: $_" -ForegroundColor Red
+    Write-Host "   Asegurate de tener tar instalado (Windows 10+ lo incluye)" -ForegroundColor Yellow
     exit 1
 }
 
 # Paso 5: Subir archivo a Oracle
-Write-Host "📤 Subiendo archivo a Oracle..." -ForegroundColor Cyan
+Write-Host "Subiendo archivo a Oracle..." -ForegroundColor Cyan
 try {
-    scp -i $SSH_KEY api-dist.tar.gz "${SSH_USER}@${SSH_HOST}:/tmp/"
+    $scpTarget = $SSH_USER + "@" + $SSH_HOST + ":/tmp/"
+    & scp -i $SSH_KEY api-dist.tar.gz $scpTarget
     if ($LASTEXITCODE -ne 0) {
         throw "Error al subir archivo"
     }
-    Write-Host "✅ Archivo subido correctamente" -ForegroundColor Green
+    Write-Host "Archivo subido correctamente" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Error al subir archivo: $_" -ForegroundColor Red
+    Write-Host "Error al subir archivo: $_" -ForegroundColor Red
     exit 1
 }
 
 # Paso 6: Extraer y reiniciar servicio en Oracle
-Write-Host "🔄 Desplegando y reiniciando servicio..." -ForegroundColor Cyan
+Write-Host "Desplegando y reiniciando servicio..." -ForegroundColor Cyan
 try {
-    # Crear script para SSH (escapar variables de PowerShell)
-    $deployCommands = @(
-        "set -e",
-        "cd $PROJECT_PATH",
-        "echo '📦 Extrayendo archivos...'",
-        "tar xzf /tmp/api-dist.tar.gz -C api",
-        "echo '🧹 Limpiando archivo temporal...'",
-        "rm /tmp/api-dist.tar.gz",
-        "echo '🔄 Reiniciando servicio...'",
-        "sudo systemctl restart $BACKEND_SERVICE",
-        "echo '✅ Deploy completado'"
-    )
+    $sshTarget = $SSH_USER + "@" + $SSH_HOST
+    $separator = ' && '
+    $cmd1 = 'cd ' + $PROJECT_PATH
+    $cmd2 = 'tar xzf /tmp/api-dist.tar.gz -C api'
+    $cmd3 = 'rm /tmp/api-dist.tar.gz'
+    $cmd4 = 'sudo systemctl restart ' + $BACKEND_SERVICE
+    $fullCommand = $cmd1 + $separator + $cmd2 + $separator + $cmd3 + $separator + $cmd4
     
-    # Unir comandos con && y pasar a SSH
-    $scriptToExecute = $deployCommands -join " && "
-    $sshArgs = @(
-        "-i", $SSH_KEY,
-        "${SSH_USER}@${SSH_HOST}",
-        $scriptToExecute
-    )
-    
-    & ssh $sshArgs
+    & ssh -i $SSH_KEY $sshTarget $fullCommand
     
     if ($LASTEXITCODE -ne 0) {
-        throw "Error al desplegar"
+        throw 'Error al desplegar'
     }
-    Write-Host "✅ Deploy completado" -ForegroundColor Green
+    Write-Host "Deploy completado" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Error al desplegar: $_" -ForegroundColor Red
+    Write-Host "Error al desplegar: $_" -ForegroundColor Red
     exit 1
 }
 
 # Paso 7: Limpiar archivo local
-Write-Host "🧹 Limpiando archivo local..." -ForegroundColor Cyan
+Write-Host "Limpiando archivo local..." -ForegroundColor Cyan
 Remove-Item "api-dist.tar.gz" -Force
-Write-Host "✅ Archivo local eliminado" -ForegroundColor Green
+Write-Host "Archivo local eliminado" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🎉 Deploy completado exitosamente!" -ForegroundColor Green
+Write-Host "Deploy completado exitosamente!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Verifica el estado del servicio:" -ForegroundColor Cyan
-Write-Host "  ssh -i $SSH_KEY ${SSH_USER}@${SSH_HOST} 'sudo systemctl status $BACKEND_SERVICE'" -ForegroundColor Yellow
+$verifyCmd = 'ssh -i ' + $SSH_KEY + ' ' + $sshTarget + ' sudo systemctl status ' + $BACKEND_SERVICE
+Write-Host ('  ' + $verifyCmd) -ForegroundColor Yellow
 Write-Host ""
-

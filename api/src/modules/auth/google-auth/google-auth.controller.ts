@@ -5,6 +5,7 @@ import { AuthService } from '../auth.service';
 import { Response } from 'express'; 
 import { UserService } from "../../user/user.service";
 import { RoleType } from '../../../constants/role-type';
+import { ApiConfigService } from '../../../shared/services/api-config.service';
 
 const isCookieSecure = process.env.COOKIE_SECURE
   ? process.env.COOKIE_SECURE === 'true'
@@ -16,6 +17,7 @@ export class GoogleAuthController {
   constructor(
     private readonly authService: AuthService,
     private userService: UserService,
+    private readonly apiConfigService: ApiConfigService,
   ) {}
 
   @Get('')
@@ -76,6 +78,8 @@ export class GoogleAuthController {
     }
 
     // Redirect the user directly to the dashboard after successful login.
-    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard`);
+    const frontendUrl = this.apiConfigService.frontendUrl();
+    console.log(`[GoogleAuth] Redirigiendo a: ${frontendUrl}/dashboard`);
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 }
