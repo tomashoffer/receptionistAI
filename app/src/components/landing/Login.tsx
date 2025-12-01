@@ -95,10 +95,10 @@ export function Login({ onNavigate }: LoginProps) {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-600 flex items-center justify-center shadow-lg">
               <Bot className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl dark:text-gray-100" style={{ color: 'var(--foreground)' }}>ReceptionistAI</span>
+            <span className="text-2xl dark:text-gray-100">ReceptionistAI</span>
           </div>
-          <h1 className="text-3xl dark:text-gray-100 mb-2" style={{ color: 'var(--foreground)' }}>Bienvenido de vuelta</h1>
-          <p className="dark:text-gray-300" style={{ color: 'var(--foreground)' }}>Inicia sesión en tu cuenta</p>
+          <h1 className="text-3xl dark:text-gray-100 mb-2">Bienvenido de vuelta</h1>
+          <p className="dark:text-gray-300">Inicia sesión en tu cuenta</p>
         </div>
 
         {/* Login Card */}
@@ -139,7 +139,7 @@ export function Login({ onNavigate }: LoginProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
-                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)' }}
                   required
                 />
               </div>
@@ -161,7 +161,7 @@ export function Login({ onNavigate }: LoginProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100"
-                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'var(--foreground)' }}
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)' }}
                   required
                 />
               </div>
@@ -195,16 +195,16 @@ export function Login({ onNavigate }: LoginProps) {
                 Regístrate
               </button>
             </p>
-          </div>
+        </div>
         </div>
 
-        <p className="text-center dark:text-gray-400 mt-6" style={{ color: 'var(--muted-foreground)' }}>
+        <p className="text-center mt-6" style={{ color: 'black' }}>
           Al continuar, aceptas nuestros{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'black' }}>
             Términos de Servicio
           </a>{" "}
           y{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'black' }}>
             Política de Privacidad
           </a>
         </p>

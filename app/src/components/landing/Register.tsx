@@ -149,10 +149,10 @@ export function Register({ onNavigate }: RegisterProps) {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-600 flex items-center justify-center shadow-lg">
               <Bot className="w-7 h-7 text-white" />
             </div>
-            <span className="text-2xl dark:text-gray-100" style={{ color: 'var(--foreground)' }}>ReceptionistAI</span>
+            <span className="text-2xl" style={{ color: 'black' }}>ReceptionistAI</span>
           </div>
-          <h1 className="text-3xl dark:text-gray-100 mb-2" style={{ color: 'var(--foreground)' }}>Crea tu cuenta</h1>
-          <p className="dark:text-gray-300" style={{ color: 'var(--foreground)' }}>Comienza tu prueba gratuita hoy</p>
+          <h1 className="text-2xl" style={{ color: 'black' }}>Crea tu cuenta</h1>
+          <p className="dark:text-gray-300" style={{ color: 'black' }}>Comienza tu prueba gratuita hoy</p>
         </div>
 
         {/* Register Card */}
@@ -244,7 +244,7 @@ export function Register({ onNavigate }: RegisterProps) {
                   onValueChange={handleIndustryChange}
                   required
                 >
-                  <SelectTrigger className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100 w-full" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: formData.industry ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
+                  <SelectTrigger className="pl-10 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-100 w-full" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--input-background)', color: 'black' }}>
                     <SelectValue placeholder={industryPlaceholder} />
                   </SelectTrigger>
                   <SelectContent className="dark:bg-gray-800 dark:border-gray-700" style={{ backgroundColor: 'var(--popover)', borderColor: 'var(--border)' }}>

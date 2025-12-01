@@ -70,7 +70,7 @@ function LoginContent() {
   }
 
   return (
-    <div className="landing-theme min-h-screen">
+    <div className="landing-theme min-h-screen ">
       <Login onNavigate={handleNavigate} />
     </div>
   );

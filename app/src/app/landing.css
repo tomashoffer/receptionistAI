@@ -2339,7 +2339,7 @@
   --color-gray-100: #1f2937;
   --background: #030712;
   --foreground: #f3f4f6;
-  background-color: var(--background);
+  background-color: var(--background) !important;
   color: var(--foreground);
   min-height: 100vh;
   overflow-y: auto;
