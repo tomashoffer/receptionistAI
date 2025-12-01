@@ -32,11 +32,15 @@ export function LogoutButton() {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       
-      // 6. Clear sessionStorage
-      sessionStorage.clear();
+      // 6. Set logout flag in sessionStorage to prevent auth/me calls
+      sessionStorage.setItem('isLoggingOut', 'true');
       
-      // 7. Redirect the user to the login page directly (no middleware, no StateSyncer).
-      window.location.href = '/login'; 
+      // 7. Clear sessionStorage (but we'll set the flag again after)
+      sessionStorage.clear();
+      sessionStorage.setItem('isLoggingOut', 'true');
+      
+      // 8. Redirect the user to the login page with logout flag (prevents auth/me call)
+      window.location.href = '/login?logout=true'; 
     } catch (error) {
       console.error("Failed to logout:", error);
       // Provide user feedback in case of an error.

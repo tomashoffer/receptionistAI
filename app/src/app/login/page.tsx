@@ -1,18 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import '../landing.css';
 import { Login } from '@/components/landing/Login';
 import { useUserStore } from '@/stores/userStore';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, setUser } = useUserStore();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Si hay query param ?logout=true, NO llamar a auth/me (evita regenerar sesión)
+      const isLogout = searchParams.get('logout') === 'true';
+      if (isLogout) {
+        console.log('🔒 Login: Detectado logout, omitiendo verificación de auth/me');
+        // Limpiar el flag de sessionStorage si existe
+        sessionStorage.removeItem('isLoggingOut');
+        setIsChecking(false);
+        return;
+      }
+
       // Si ya hay usuario en el store, redirigir inmediatamente
       if (user) {
         router.replace('/dashboard');
@@ -39,7 +50,7 @@ export default function LoginPage() {
     };
 
     checkAuth();
-  }, [router, user, setUser]);
+  }, [router, user, setUser, searchParams]);
 
   const handleNavigate = (page: string) => {
     if (page === 'register') {

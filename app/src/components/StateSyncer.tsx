@@ -15,6 +15,15 @@ export default function StateSyncer() {
       return;
     }
     
+    // Verificar si se está haciendo logout (evita llamar a auth/me y regenerar sesión)
+    const isLoggingOut = sessionStorage.getItem('isLoggingOut') === 'true' || 
+                         (typeof window !== 'undefined' && window.location.search.includes('logout=true'));
+    
+    if (isLoggingOut) {
+      console.log('🔒 StateSyncer: Detectado logout, omitiendo verificación de auth/me');
+      return;
+    }
+    
     // This effect runs once when the component mounts.
     // It checks if the user is authenticated (has a session) but the client state is empty.
     if (!user) {
