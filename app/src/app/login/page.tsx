@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import '../landing.css';
 import { Login } from '@/components/landing/Login';
 import { useUserStore } from '@/stores/userStore';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, setUser } = useUserStore();
@@ -73,6 +73,18 @@ export default function LoginPage() {
     <div className="landing-theme min-h-screen">
       <Login onNavigate={handleNavigate} />
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="landing-theme min-h-screen flex items-center justify-center">
+        <div className="text-gray-500 dark:text-gray-400">Cargando...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
 
