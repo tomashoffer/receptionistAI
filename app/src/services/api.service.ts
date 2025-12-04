@@ -413,6 +413,169 @@ class ApiService {
       body: JSON.stringify(config),
     });
   }
+
+  // ========== CONTACTS ENDPOINTS ==========
+
+  async getContacts(params: {
+    business_id: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    tags?: string;
+    source?: string;
+  }) {
+    const queryParams = new URLSearchParams({
+      business_id: params.business_id,
+      page: (params.page || 1).toString(),
+      limit: (params.limit || 50).toString(),
+      ...(params.search && { search: params.search }),
+      ...(params.tags && { tags: params.tags }),
+      ...(params.source && { source: params.source }),
+    });
+
+    return this.request(`/contacts?${queryParams.toString()}`);
+  }
+
+  async createContact(data: any) {
+    return this.request('/contacts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getContact(id: string, businessId: string) {
+    return this.request(`/contacts/${id}?business_id=${businessId}`);
+  }
+
+  async updateContact(id: string, businessId: string, data: any) {
+    return this.request(`/contacts/${id}?business_id=${businessId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteContact(id: string, businessId: string) {
+    return this.request(`/contacts/${id}?business_id=${businessId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getContactTags(contactId: string) {
+    return this.request(`/contacts/${contactId}/tags`);
+  }
+
+  async assignTagsToContact(contactId: string, tagIds: string[]) {
+    return this.request(`/contacts/${contactId}/tags`, {
+      method: 'POST',
+      body: JSON.stringify({ tag_ids: tagIds }),
+    });
+  }
+
+  async removeTagFromContact(contactId: string, tagId: string) {
+    // DELETE retorna 204 No Content, no intentar parsear JSON
+    const url = `/api/contacts/${contactId}/tags/${tagId}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}`);
+    }
+
+    // 204 No Content - no hay body para parsear
+    return { success: true };
+  }
+
+  // ========== TAGS ENDPOINTS ==========
+
+  async getTags(businessId: string) {
+    return this.request(`/tags?business_id=${businessId}`);
+  }
+
+  async createTag(data: any) {
+    return this.request('/tags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTag(id: string, businessId: string, data: any) {
+    return this.request(`/tags/${id}?business_id=${businessId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTag(id: string, businessId: string) {
+    return this.request(`/tags/${id}?business_id=${businessId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ========== IMPORT/EXPORT ==========
+
+  async importContacts(businessId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('business_id', businessId);
+
+    // Para FormData, no usar this.request() porque maneja JSON
+    const response = await fetch('/api/contacts/import', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al importar contactos');
+    }
+
+    return response.json();
+  }
+
+  async exportContacts(params: {
+    business_id: string;
+    search?: string;
+    tags?: string;
+    source?: string;
+  }) {
+    const queryParams = new URLSearchParams({
+      business_id: params.business_id,
+      ...(params.search && { search: params.search }),
+      ...(params.tags && { tags: params.tags }),
+      ...(params.source && { source: params.source }),
+    });
+
+    const response = await fetch(`/api/contacts/export?${queryParams.toString()}`, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al exportar contactos');
+    }
+
+    return response.blob();
+  }
+
+  async downloadTemplate() {
+    const response = await fetch('/api/contacts/template', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al descargar plantilla');
+    }
+
+    return response.blob();
+  }
+
+  // ========== APPOINTMENTS ==========
+
+  async getContactAppointments(contactId: string) {
+    return this.request(`/contacts/${contactId}/appointments`);
+  }
 }
 
 export const apiService = new ApiService();

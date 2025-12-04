@@ -43,5 +43,8 @@ export class AppointmentEntity extends AbstractEntity {
 
   @Column({ name: 'user_id', nullable: true })
   userId: string;
+
+  @Column({ name: 'contact_id', nullable: true, type: 'uuid' })
+  contactId?: string;
 }
 

@@ -344,13 +344,13 @@ export function Register({ onNavigate }: RegisterProps) {
           </div>
         </div>
 
-        <p className="text-center dark:text-gray-400 mt-6" style={{ color: 'var(--muted-foreground)' }}>
-          Al registrarte, aceptas nuestros{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
+        <p className="text-center mt-6" style={{ color: 'black' }}>
+            Al registrarte, aceptas nuestros{" "}
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'grey' }}>
             Términos de Servicio
           </a>{" "}
           y{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'var(--primary)' }}>
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'grey' }}>
             Política de Privacidad
           </a>
         </p>

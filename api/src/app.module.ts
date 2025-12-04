@@ -18,6 +18,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
 import { ElevenlabsModule } from './modules/elevenlabs/elevenlabs.module';
 import { GoogleCalendarModule } from './modules/google-calendar/google-calendar.module';
 import { UtilsModule } from './modules/utils/utils.module';
+import { ContactModule } from './modules/contact/contact.module';
 import { BullModule } from '@nestjs/bull';
 
 @Module({
@@ -66,6 +67,7 @@ import { BullModule } from '@nestjs/bull';
     ElevenlabsModule,
     GoogleCalendarModule,
     UtilsModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [AppService],

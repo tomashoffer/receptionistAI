@@ -11,6 +11,9 @@ import { BusinessUser } from "./modules/business/entities/business-user.entity";
 import { CallLog } from "./modules/business/entities/call-log.entity";
 import { BusinessPlan } from "./modules/business/entities/business-plan.entity";
 import { Assistant } from "./modules/assistant/entities/assistant.entity";
+import { Contact } from "./modules/contact/entities/contact.entity";
+import { Tag } from "./modules/contact/entities/tag.entity";
+import { ContactTag } from "./modules/contact/entities/contact-tag.entity";
 
 const isCompiled = path.extname(__filename).endsWith(".js");
 
@@ -31,6 +34,9 @@ const options = {
     CallLog,
     BusinessPlan,
     Assistant,
+    Contact,
+    Tag,
+    ContactTag,
   ],
   migrations: [
     isCompiled

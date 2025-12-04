@@ -200,11 +200,11 @@ export function Login({ onNavigate }: LoginProps) {
 
         <p className="text-center mt-6" style={{ color: 'black' }}>
           Al continuar, aceptas nuestros{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'black' }}>
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'grey' }}>
             Términos de Servicio
           </a>{" "}
           y{" "}
-          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'black' }}>
+          <a href="#" className="dark:text-indigo-400 dark:hover:text-indigo-300" style={{ color: 'grey' }}>
             Política de Privacidad
           </a>
         </p>
