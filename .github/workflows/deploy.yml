@@ -48,31 +48,26 @@ jobs:
           ls -lh api-dist.tar.gz app-next.tar.gz || true
           du -h api-dist.tar.gz app-next.tar.gz || true
 
-      - name: Copiar backend a OCI
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          source: "api-dist.tar.gz"
-          target: "/tmp/"
-          timeout: 600s
-          command_timeout: 600s
-          strip_components: 0
-          overwrite: true
+      - name: Configurar SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OCI_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Copiar frontend a OCI
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.OCI_HOST }}
-          username: ${{ secrets.OCI_USER }}
-          key: ${{ secrets.OCI_SSH_KEY }}
-          source: "app-next.tar.gz"
-          target: "/tmp/"
-          timeout: 600s
-          command_timeout: 600s
-          strip_components: 0
-          overwrite: true
+      - name: Copiar backend a OCI (rsync)
+        run: |
+          rsync -avz --progress --timeout=600 \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            api-dist.tar.gz \
+            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+
+      - name: Copiar frontend a OCI (rsync)
+        run: |
+          rsync -avz --progress --timeout=600 \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            app-next.tar.gz \
+            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
 
       - name: Desplegar y reiniciar servicios
         uses: appleboy/ssh-action@v0.1.10
