@@ -15,6 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Instalar rsync y herramientas necesarias
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rsync openssh-client
+          rsync --version
+          echo "✅ rsync instalado correctamente"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -55,11 +62,6 @@ jobs:
           ls -lh api-dist.tar.gz app-next.tar.gz || true
           du -h api-dist.tar.gz app-next.tar.gz || true
 
-      - name: Instalar rsync
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y rsync
-
       - name: Configurar SSH key
         run: |
           mkdir -p ~/.ssh
@@ -67,33 +69,64 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.OCI_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      - name: Asegurar rsync en servidor OCI
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            # Detectar el gestor de paquetes y instalar rsync si no está
+            if ! command -v rsync >/dev/null 2>&1; then
+              echo "📦 rsync no encontrado en el servidor, instalando..."
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update -qq
+                sudo apt-get install -y rsync
+              elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y rsync
+              elif command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y rsync
+              else
+                echo "❌ No se pudo detectar el gestor de paquetes"
+                exit 1
+              fi
+            fi
+            rsync --version
+            echo "✅ rsync disponible en el servidor OCI"
+
       - name: Copiar backend a OCI (rsync)
         run: |
-          rsync -avz --progress --partial --timeout=600 --compress-level=3 \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+          set -e
+          echo "📤 Iniciando transferencia del backend..."
+          rsync -avz --progress --partial --timeout=600 --compress-level=3 --mkpath \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60" \
             api-dist.tar.gz \
             ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || {
-              echo "❌ Error en transferencia backend, reintentando..."
+              echo "❌ Error en transferencia backend, reintentando en 5 segundos..."
               sleep 5
-              rsync -avz --progress --partial --timeout=600 --compress-level=3 \
-                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+              rsync -avz --progress --partial --timeout=600 --compress-level=3 --mkpath \
+                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60" \
                 api-dist.tar.gz \
-                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || exit 1
             }
+          echo "✅ Backend transferido exitosamente"
 
       - name: Copiar frontend a OCI (rsync)
         run: |
-          rsync -avz --progress --partial --timeout=600 --compress-level=3 \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+          set -e
+          echo "📤 Iniciando transferencia del frontend..."
+          rsync -avz --progress --partial --timeout=600 --compress-level=3 --mkpath \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60" \
             app-next.tar.gz \
             ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || {
-              echo "❌ Error en transferencia frontend, reintentando..."
+              echo "❌ Error en transferencia frontend, reintentando en 5 segundos..."
               sleep 5
-              rsync -avz --progress --partial --timeout=600 --compress-level=3 \
-                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+              rsync -avz --progress --partial --timeout=600 --compress-level=3 --mkpath \
+                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60" \
                 app-next.tar.gz \
-                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || exit 1
             }
+          echo "✅ Frontend transferido exitosamente"
 
       - name: Desplegar y reiniciar servicios
         uses: appleboy/ssh-action@v0.1.10
@@ -104,8 +137,13 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.OCI_PROJECT_PATH }}
+            echo "🧹 Limpiando destino antes de extraer..."
+            rm -rf api/dist/* app/.next/*
+            echo "📦 Extrayendo archivos..."
             tar xzf /tmp/api-dist.tar.gz -C api
             tar xzf /tmp/app-next.tar.gz -C app
             rm /tmp/api-dist.tar.gz /tmp/app-next.tar.gz
+            echo "🔄 Reiniciando servicios..."
             sudo systemctl restart ${{ secrets.OCI_BACK_SERVICE }}
             sudo systemctl restart ${{ secrets.OCI_FRONT_SERVICE }}
+            echo "✅ Deploy completado exitosamente"
