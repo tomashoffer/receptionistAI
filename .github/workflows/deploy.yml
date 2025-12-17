@@ -38,16 +38,40 @@ jobs:
           cd app
           npm ci --legacy-peer-deps
           npm run build
-          tar czf ../app-next.tar.gz .next
+          # Excluir archivos innecesarios para reducir tamaño
+          tar czf ../app-next.tar.gz .next --exclude='.next/cache' --exclude='.next/trace'
 
-      - name: Copiar artefactos a OCI
+      - name: Verificar tamaño de archivos
+        run: |
+          echo "Tamaño de archivos a copiar:"
+          ls -lh api-dist.tar.gz app-next.tar.gz || true
+          du -h api-dist.tar.gz app-next.tar.gz || true
+
+      - name: Copiar backend a OCI
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.OCI_HOST }}
           username: ${{ secrets.OCI_USER }}
           key: ${{ secrets.OCI_SSH_KEY }}
-          source: "api-dist.tar.gz,app-next.tar.gz"
+          source: "api-dist.tar.gz"
           target: "/tmp/"
+          timeout: 600s
+          command_timeout: 600s
+          strip_components: 0
+          overwrite: true
+
+      - name: Copiar frontend a OCI
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          source: "app-next.tar.gz"
+          target: "/tmp/"
+          timeout: 600s
+          command_timeout: 600s
+          strip_components: 0
+          overwrite: true
 
       - name: Desplegar y reiniciar servicios
         uses: appleboy/ssh-action@v0.1.10
