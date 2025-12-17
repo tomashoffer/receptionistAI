@@ -35,6 +35,10 @@ export class CreateCallLogDto {
   transcription?: string;
 
   @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @IsOptional()
   @IsObject()
   ai_responses?: Array<{
     timestamp: Date;
@@ -73,6 +77,10 @@ export class CreateCallLogDto {
   @IsOptional()
   @IsNumber()
   ai_tokens_used?: number;
+
+  @IsOptional()
+  @IsUUID()
+  contact_id?: string;
 }
 
 export class UpdateCallLogDto {
@@ -93,6 +101,10 @@ export class UpdateCallLogDto {
   transcription?: string;
 
   @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @IsOptional()
   @IsObject()
   ai_responses?: Array<{
     timestamp: Date;
@@ -131,6 +143,10 @@ export class UpdateCallLogDto {
   @IsOptional()
   @IsNumber()
   ai_tokens_used?: number;
+
+  @IsOptional()
+  @IsUUID()
+  contact_id?: string;
 }
 
 export class CallLogQueryDto {

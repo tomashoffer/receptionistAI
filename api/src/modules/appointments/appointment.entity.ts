@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { AbstractEntity } from '../../common/abstract.entity';
 import { AppointmentStatus } from '../../constants/appointment-types';
+import { Contact } from '../contact/entities/contact.entity';
 
 @Entity('appointments')
 export class AppointmentEntity extends AbstractEntity {
@@ -46,5 +47,9 @@ export class AppointmentEntity extends AbstractEntity {
 
   @Column({ name: 'contact_id', nullable: true, type: 'uuid' })
   contactId?: string;
+
+  @ManyToOne(() => Contact, { nullable: true })
+  @JoinColumn({ name: 'contact_id' })
+  contact?: Contact;
 }
 

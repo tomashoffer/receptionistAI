@@ -28,11 +28,27 @@ export class BusinessController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create business',
-    description: 'Create a new business'
+    description: 'Create a new business. The authenticated user will be set as the owner.'
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Business created successfully'
+    description: 'Business created successfully',
+    schema: {
+      example: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Salón de Belleza María',
+        phone_number: '+5491123456789',
+        description: 'Salón de belleza especializado en cortes modernos y coloración',
+        email: 'contacto@salonmaria.com',
+        address: 'Av. Corrientes 1234, Buenos Aires, Argentina',
+        website: 'https://www.salonmaria.com',
+        industry: 'Belleza y Estética',
+        ai_prompt: 'Eres un asistente virtual de un salón de belleza...',
+        owner_id: '123e4567-e89b-12d3-a456-426614174001',
+        created_at: '2025-12-11T10:00:00.000Z',
+        updated_at: '2025-12-11T10:00:00.000Z'
+      }
+    }
   })
   create(@AuthUser() user: UserDto, @Body() createBusinessDto: CreateBusinessDto) {
     return this.businessService.create(createBusinessDto, user.id);
@@ -43,11 +59,24 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Find all businesses',
-    description: 'Get all businesses for the authenticated user'
+    description: 'Get all businesses associated with the authenticated user'
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'List of businesses retrieved successfully'
+    description: 'List of businesses retrieved successfully',
+    schema: {
+      type: 'array',
+      example: [
+        {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          name: 'Salón de Belleza María',
+          phone_number: '+5491123456789',
+          industry: 'Belleza y Estética',
+          owner_id: '123e4567-e89b-12d3-a456-426614174001',
+          created_at: '2025-12-11T10:00:00.000Z'
+        }
+      ]
+    }
   })
   findAll(@AuthUser() user: UserDto) {
     return this.businessService.findAll(user.id);
@@ -58,11 +87,31 @@ export class BusinessController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get business by ID',
-    description: 'Get a specific business by its ID'
+    description: 'Get detailed information about a specific business by its ID. User must be associated with the business.'
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Business retrieved successfully'
+    description: 'Business retrieved successfully',
+    schema: {
+      example: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Salón de Belleza María',
+        phone_number: '+5491123456789',
+        description: 'Salón de belleza especializado en cortes modernos y coloración',
+        email: 'contacto@salonmaria.com',
+        address: 'Av. Corrientes 1234, Buenos Aires, Argentina',
+        website: 'https://www.salonmaria.com',
+        industry: 'Belleza y Estética',
+        ai_prompt: 'Eres un asistente virtual...',
+        ai_voice_id: '21m00Tcm4TlvDq8ikWAM',
+        ai_language: 'es',
+        assistant_id: 'asst_abc123xyz',
+        status: 'active',
+        owner_id: '123e4567-e89b-12d3-a456-426614174001',
+        created_at: '2025-12-11T10:00:00.000Z',
+        updated_at: '2025-12-11T10:00:00.000Z'
+      }
+    }
   })
   findOne(@Param('id') id: string, @AuthUser() user: UserDto) {
     return this.businessService.findOne(id, user.id);

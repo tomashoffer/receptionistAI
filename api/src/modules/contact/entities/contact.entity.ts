@@ -10,6 +10,8 @@ import {
 } from 'typeorm';
 import { Business } from '../../business/entities/business.entity';
 import { ContactTag } from './contact-tag.entity';
+import { AppointmentEntity } from '../../appointments/appointment.entity';
+import { CallLog } from '../../business/entities/call-log.entity';
 
 @Entity('contacts')
 @Index(['business_id', 'phone'], { unique: true })
@@ -57,9 +59,11 @@ export class Contact {
   @OneToMany(() => ContactTag, (contactTag) => contactTag.contact)
   contactTags: ContactTag[];
 
-  // Relación virtual con appointments (no hay foreign key desde Contact hacia Appointment)
-  // Los appointments se obtienen filtrando por contact_id
-  appointments?: any[];
+  @OneToMany(() => AppointmentEntity, (appointment) => appointment.contact)
+  appointments?: AppointmentEntity[];
+
+  @OneToMany(() => CallLog, (callLog) => callLog.contact)
+  callLogs?: CallLog[];
 
   @CreateDateColumn()
   created_at: Date;

@@ -2,8 +2,11 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppointmentEntity } from './appointment.entity';
-import { CreateAppointmentDto, UpdateAppointmentDto } from './dto';
+import { CreateAppointmentDto, UpdateAppointmentDto, CreateAppointmentWithContactDto } from './dto';
 import { GoogleService } from '../google/google.service';
+import { GoogleCalendarService } from '../google-calendar/google-calendar.service';
+import { ContactService } from '../contact/contact.service';
+import { CreateContactDto } from '../contact/dto/create-contact.dto';
 
 @Injectable()
 export class AppointmentsService {
@@ -13,6 +16,8 @@ export class AppointmentsService {
     @InjectRepository(AppointmentEntity)
     private appointmentRepository: Repository<AppointmentEntity>,
     private googleService: GoogleService,
+    private googleCalendarService: GoogleCalendarService,
+    private contactService: ContactService,
   ) {}
 
   async create(createAppointmentDto: CreateAppointmentDto): Promise<AppointmentEntity> {
@@ -174,6 +179,93 @@ export class AppointmentsService {
     }
 
     return query.getOne();
+  }
+
+  async findByCalendarId(googleCalendarEventId: string): Promise<AppointmentEntity> {
+    const appointment = await this.appointmentRepository.findOne({
+      where: { googleCalendarEventId },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException(
+        `Cita con Google Calendar Event ID ${googleCalendarEventId} no encontrada`,
+      );
+    }
+
+    return appointment;
+  }
+
+  async createWithContact(dto: CreateAppointmentWithContactDto): Promise<AppointmentEntity> {
+    // Buscar contacto existente por email o teléfono
+    let contact = await this.contactService.findByEmailOrPhone(
+      dto.business_id,
+      dto.clientEmail,
+      dto.clientPhone,
+    );
+
+    // Si no existe, crear el contacto
+    if (!contact) {
+      const createContactDto: CreateContactDto = {
+        business_id: dto.business_id,
+        name: dto.clientName,
+        phone: dto.clientPhone,
+        email: dto.clientEmail,
+        source: 'call',
+      };
+
+      try {
+        contact = await this.contactService.create(createContactDto);
+        this.logger.log(`✅ Contacto creado automáticamente: ${contact.id} - ${contact.name}`);
+      } catch (error) {
+        // Si falla por duplicado, intentar buscar nuevamente
+        if (error instanceof Error && (error.message.includes('ya existe') || error.message.includes('Conflict'))) {
+          contact = await this.contactService.findByEmailOrPhone(
+            dto.business_id,
+            dto.clientEmail,
+            dto.clientPhone,
+          );
+        } else {
+          this.logger.error('Error creando contacto:', error);
+          throw error;
+        }
+      }
+    }
+
+    // Crear el appointment con el contact_id
+    const createAppointmentDto: CreateAppointmentDto = {
+      clientName: dto.clientName,
+      clientPhone: dto.clientPhone,
+      clientEmail: dto.clientEmail,
+      serviceType: dto.serviceType,
+      appointmentDate: dto.appointmentDate,
+      appointmentTime: dto.appointmentTime,
+      notes: dto.notes,
+      voiceInteractionId: dto.voiceInteractionId,
+    };
+
+    const appointment = this.appointmentRepository.create(createAppointmentDto);
+    const savedAppointment = await this.appointmentRepository.save(appointment);
+
+    // Asignar contact_id al appointment
+    savedAppointment.contactId = contact.id;
+    
+    // Si n8n ya creó el evento en Google Calendar, usar ese ID
+    // (n8n maneja Google Calendar directamente, la API solo guarda datos)
+    if (dto.googleCalendarEventId) {
+      savedAppointment.googleCalendarEventId = dto.googleCalendarEventId;
+      this.logger.log(`✅ Usando Google Calendar Event ID proporcionado por n8n: ${dto.googleCalendarEventId}`);
+    }
+    // Si no se proporciona googleCalendarEventId, significa que n8n no creó el evento
+    // o que se está llamando desde otro lugar. En ese caso, NO creamos el evento aquí
+    // porque n8n es responsable de crear eventos en Google Calendar
+    
+    await this.appointmentRepository.save(savedAppointment);
+
+    this.logger.log(
+      `✅ Appointment creado con contacto: ${savedAppointment.id} - Contact: ${contact.id}`,
+    );
+
+    return savedAppointment;
   }
 }
 

@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { ContactService } from './contact.service';
 import { TagService } from './tag.service';
 import { ContactImportService } from './contact-import.service';
@@ -25,7 +26,9 @@ import { UpdateContactDto } from './dto/update-contact.dto';
 import { CreateContactFromConversationDto } from './dto/create-contact-from-conversation.dto';
 import { AssignTagsDto } from './dto/assign-tags.dto';
 import { JwtAuthGuard } from '../../guards/auth-strategy.guard';
+import { Auth } from '../../decorators/http.decorators';
 
+@ApiTags('contacts')
 @Controller('contacts')
 @UseGuards(JwtAuthGuard)
 export class ContactController {
@@ -37,6 +40,28 @@ export class ContactController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Auth([], { public: true })
+  @ApiOperation({
+    summary: 'Create contact',
+    description: 'Create a new contact for a business'
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Contact created successfully',
+    schema: {
+      example: {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        business_id: '123e4567-e89b-12d3-a456-426614174001',
+        name: 'María González',
+        phone: '+5491123456789',
+        email: 'maria.gonzalez@example.com',
+        source: 'call',
+        notes: 'Cliente frecuente, prefiere horarios matutinos',
+        created_at: '2025-12-11T10:00:00.000Z',
+        updated_at: '2025-12-11T10:00:00.000Z'
+      }
+    }
+  })
   async create(@Body() createContactDto: CreateContactDto) {
     return await this.contactService.create(createContactDto);
   }
@@ -180,6 +205,24 @@ export class ContactController {
     return new StreamableFile(buffer);
   }
 
+  @Get('by-identifier')
+  @Auth([], { public: true })
+  async findByEmailOrPhone(
+    @Query('business_id') businessId: string,
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
+  ) {
+    if (!businessId) {
+      return { error: 'business_id es requerido' };
+    }
+
+    if (!email && !phone) {
+      return { error: 'Debe proporcionar email o phone' };
+    }
+
+    return await this.contactService.findByEmailOrPhone(businessId, email, phone);
+  }
+
   // ========== RUTAS CON PARÁMETROS DINÁMICOS AL FINAL ==========
 
   @Get(':id')
@@ -233,6 +276,7 @@ export class ContactController {
   // ========== APPOINTMENTS ==========
 
   @Get(':id/appointments')
+  @Auth([], { public: true })
   async getContactAppointments(@Param('id') id: string) {
     return await this.contactService.getContactAppointments(id);
   }

@@ -20,3 +20,5 @@ export interface ContactWithAppointments {
   total_appointments: number;
 }
 
+
+

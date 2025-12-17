@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto, UpdateAppointmentDto, AppointmentResponseDto } from './dto';
+import { CreateAppointmentDto, UpdateAppointmentDto, AppointmentResponseDto, CreateAppointmentWithContactDto } from './dto';
 import { AuthGuard } from '../../guards/auth.guard';
 import { AuthUser } from '../../decorators/auth-user.decorator';
 import { Auth } from '../../decorators/http.decorators';
@@ -22,6 +22,15 @@ export class AppointmentsController {
     return this.appointmentsService.create(createAppointmentDto);
   }
 
+  @Post('with-contact')
+  @Auth([], { public: true })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Crear nueva cita con auto-creación de contacto' })
+  @ApiResponse({ status: 201, description: 'Cita creada exitosamente con contacto asociado', type: AppointmentResponseDto })
+  createWithContact(@Body() createAppointmentWithContactDto: CreateAppointmentWithContactDto) {
+    return this.appointmentsService.createWithContact(createAppointmentWithContactDto);
+  }
+
   @Get()
   @Auth([RoleType.ADMIN, RoleType.USER])
   @HttpCode(HttpStatus.OK)
@@ -35,7 +44,7 @@ export class AppointmentsController {
   }
 
   @Get('range')
-  @Auth([RoleType.ADMIN, RoleType.USER])
+  @Auth([], { public: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Obtener citas por rango de fechas' })
   @ApiResponse({ status: 200, description: 'Citas en el rango especificado', type: [AppointmentResponseDto] })
@@ -61,6 +70,16 @@ export class AppointmentsController {
     return this.appointmentsService.getAvailableSlots(date, duration);
   }
 
+  @Get('by-calendar-id')
+  @Auth([], { public: true })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Obtener cita por Google Calendar Event ID' })
+  @ApiResponse({ status: 200, description: 'Cita encontrada', type: AppointmentResponseDto })
+  @ApiResponse({ status: 404, description: 'Cita no encontrada' })
+  findByCalendarId(@Query('googleCalendarEventId') googleCalendarEventId: string) {
+    return this.appointmentsService.findByCalendarId(googleCalendarEventId);
+  }
+
   @Get('my-appointments')
   @Auth([RoleType.ADMIN, RoleType.USER])
   @HttpCode(HttpStatus.OK)
@@ -81,7 +100,7 @@ export class AppointmentsController {
   }
 
   @Patch(':id')
-  @Auth([RoleType.ADMIN, RoleType.USER])
+  @Auth([], { public: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Actualizar cita' })
   @ApiResponse({ status: 200, description: 'Cita actualizada exitosamente', type: AppointmentResponseDto })
@@ -91,7 +110,7 @@ export class AppointmentsController {
   }
 
   @Delete(':id')
-  @Auth([RoleType.ADMIN, RoleType.USER])
+  @Auth([], { public: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Eliminar cita' })
   @ApiResponse({ status: 200, description: 'Cita eliminada exitosamente' })

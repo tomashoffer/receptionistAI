@@ -6,3 +6,5 @@ export class UpdateTagDto extends PartialType(
   OmitType(CreateTagDto, ['business_id', 'created_by'] as const),
 ) {}
 
+
+

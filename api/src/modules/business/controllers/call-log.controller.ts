@@ -138,15 +138,16 @@ export class CallLogController {
       caller_number: webhookData.From || webhookData.caller_number,
       called_number: webhookData.To || webhookData.called_number,
       direction: CallDirection.INBOUND,
-      status: webhookData.CallStatus ? this.mapStatus(webhookData.CallStatus) : CallStatus.ANSWERED,
-      duration_seconds: parseInt(webhookData.CallDuration || '0'),
-      started_at: new Date(webhookData.Timestamp || Date.now()),
+      status: webhookData.status || (webhookData.CallStatus ? this.mapStatus(webhookData.CallStatus) : CallStatus.COMPLETED),
+      duration_seconds: webhookData.duration_seconds || parseInt(webhookData.CallDuration || '0'),
+      started_at: webhookData.started_at ? new Date(webhookData.started_at) : new Date(webhookData.Timestamp || Date.now()),
       transcription: webhookData.transcription,
+      summary: webhookData.summary, // Mapeo agregado para n8n
       ai_responses: webhookData.ai_responses,
       outcome: webhookData.outcome,
       extracted_data: webhookData.extracted_data,
-      cost_usd: parseFloat(webhookData.cost || '0'),
-      ai_tokens_used: parseInt(webhookData.tokens_used || '0'),
+      cost_usd: webhookData.cost_usd || parseFloat(webhookData.cost || '0'),
+      ai_tokens_used: webhookData.ai_tokens_used || parseInt(webhookData.tokens_used || '0'),
     };
 
     return this.callLogService.create(createCallLogDto);
