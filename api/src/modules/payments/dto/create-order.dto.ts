@@ -4,17 +4,20 @@ import { IsNotEmpty, IsNumber, IsString, IsOptional, Min, IsEnum } from 'class-v
 
 export class CreateOrderDto {
   @ApiProperty({
-    description: 'Title of the product or service',
-    example: 'Audi A4 2020',
+    description: 'Título del producto o servicio',
+    example: 'Cita - Corte de cabello',
+    minLength: 3,
+    maxLength: 255
   })
   @IsString()
   @IsNotEmpty()
   title: string;
 
   @ApiProperty({
-    description: 'Quantity of items',
+    description: 'Cantidad de items',
     example: 1,
     default: 1,
+    minimum: 1
   })
   @IsNumber()
   @Min(1)
@@ -22,8 +25,9 @@ export class CreateOrderDto {
   quantity: number;
 
   @ApiProperty({
-    description: 'Unit price of the item',
-    example: 25000,
+    description: 'Precio unitario del item (en la moneda especificada)',
+    example: 5000,
+    minimum: 0
   })
   @IsNumber()
   @Min(0)
@@ -31,18 +35,21 @@ export class CreateOrderDto {
   price: number;
 
   @ApiProperty({
-    description: 'Description of the product or service',
-    example: 'Compra de vehículo Audi A4 2020',
+    description: 'Descripción detallada del producto o servicio',
+    example: 'Pago por cita de corte de cabello programada para el 20 de diciembre',
     required: false,
+    maxLength: 500
   })
   @IsString()
   @IsOptional()
   description?: string;
 
   @ApiProperty({
-    description: 'Type of action this payment is for',
+    description: 'Tipo de acción para la cual es este pago',
     example: 'appointment',
     required: false,
+    enum: ['appointment', 'subscription', 'service', 'other'],
+    enumName: 'ActionType'
   })
   @IsString()
   @IsOptional()

@@ -1,0 +1,15 @@
+{
+  "name": "receptionistai",
+  "version": "1.0.0",
+  "description": "Un sistema inteligente de recepcionista AI que permite agendar turnos usando comandos de voz, con integración completa a Google Sheets y Google Calendar.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "n8n": "^1.123.5"
+  }
+}

@@ -31,7 +31,17 @@ function LoginContent() {
       }
 
       try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        // Agregar timeout para evitar que se quede colgado si el backend está caído
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+        
+        const response = await fetch('/api/auth/me', { 
+          credentials: 'include',
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           const data = await response.json();
           if (data && data.id) {
@@ -42,7 +52,11 @@ function LoginContent() {
         }
         // Si la respuesta no es ok o no hay datos, simplemente mostrar el formulario de login
       } catch (error) {
-        console.warn('No authenticated user', error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.warn('Timeout al verificar autenticación - backend no responde');
+        } else {
+          console.warn('No authenticated user', error);
+        }
         // En caso de error, simplemente mostrar el formulario de login
       } finally {
         setIsChecking(false);

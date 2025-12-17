@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Business } from './business.entity';
+import { Contact } from '../../contact/entities/contact.entity';
 
 export enum CallStatus {
   ANSWERED = 'answered',
@@ -58,6 +59,9 @@ export class CallLog {
   @Column({ type: 'text', nullable: true })
   transcription: string;
 
+  @Column({ type: 'text', nullable: true })
+  summary: string; // Resumen de la llamada (EOC Report)
+
   @Column({ type: 'json', nullable: true })
   ai_responses: Array<{
     timestamp: Date;
@@ -74,6 +78,10 @@ export class CallLog {
   // Resultado de la llamada
   @Column({ type: 'varchar', length: 100, nullable: true })
   outcome: string; // appointment_scheduled, information_requested, etc.
+
+  // Relación con contacto
+  @Column({ type: 'uuid', nullable: true })
+  contact_id: string;
 
   @Column({ type: 'json', nullable: true })
   extracted_data: {
@@ -97,6 +105,10 @@ export class CallLog {
   @ManyToOne(() => Business, business => business.call_logs)
   @JoinColumn({ name: 'business_id' })
   business: Business;
+
+  @ManyToOne(() => Contact, { nullable: true })
+  @JoinColumn({ name: 'contact_id' })
+  contact?: Contact;
 
   @CreateDateColumn()
   created_at: Date;

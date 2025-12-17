@@ -9,6 +9,7 @@ import { ApiConfigService } from '../../shared/services/api-config.service';
 import { JwtStrategy } from './strategies/jwt.stategy';
 import { GoogleAuthController } from './google-auth/google-auth.controller';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { PublicStrategy } from './strategies/public.strategy';
 import { MailingService } from '../mailing/mailing.service';
 
 @Module({
@@ -53,7 +54,7 @@ import { MailingService } from '../mailing/mailing.service';
     }),
   ],
   controllers: [AuthController, GoogleAuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, MailingService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, PublicStrategy, MailingService],
   exports: [JwtModule, AuthService],
 })
 export class AuthModule {}

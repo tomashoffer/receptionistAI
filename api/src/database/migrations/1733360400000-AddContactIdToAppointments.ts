@@ -43,3 +43,5 @@ export class AddContactIdToAppointments1733360400000 implements MigrationInterfa
   }
 }
 
+
+

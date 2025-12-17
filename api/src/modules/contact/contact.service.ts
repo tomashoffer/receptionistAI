@@ -127,6 +127,35 @@ export class ContactService {
     });
   }
 
+  async findByEmailOrPhone(
+    businessId: string,
+    email?: string,
+    phone?: string,
+  ): Promise<Contact | null> {
+    if (!email && !phone) {
+      return null;
+    }
+
+    const whereConditions: any[] = [{ business_id: businessId }];
+
+    if (email && phone) {
+      // Buscar por email O teléfono
+      whereConditions.push(
+        { business_id: businessId, email },
+        { business_id: businessId, phone },
+      );
+    } else if (email) {
+      whereConditions[0].email = email;
+    } else if (phone) {
+      whereConditions[0].phone = phone;
+    }
+
+    return await this.contactRepository.findOne({
+      where: whereConditions.length > 1 ? whereConditions : whereConditions[0],
+      relations: ['contactTags', 'contactTags.tag'],
+    });
+  }
+
   async update(
     id: string,
     businessId: string,
