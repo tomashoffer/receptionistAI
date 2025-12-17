@@ -57,14 +57,21 @@ jobs:
             exit 1
           fi
           
-          if [ ! -f .next/standalone/server.js ]; then
-            echo "❌ ERROR: .next/standalone/server.js no existe"
+          # Next.js standalone genera server.js en .next/standalone/app/server.js
+          if [ -f .next/standalone/app/server.js ]; then
+            echo "✅ Standalone generado correctamente (estructura app/)"
+            ls -lh .next/standalone/app/server.js
+          elif [ -f .next/standalone/server.js ]; then
+            echo "✅ Standalone generado correctamente (estructura directa)"
+            ls -lh .next/standalone/server.js
+          else
+            echo "❌ ERROR: server.js no existe en ninguna ubicación esperada"
+            echo "Buscando server.js en .next:"
             find .next -name "server.js" || echo "No se encontró server.js en ningún lado"
+            echo "Estructura de .next/standalone:"
+            find .next/standalone -type f -name "*.js" | head -10
             exit 1
           fi
-          
-          echo "✅ Standalone generado correctamente"
-          ls -lh .next/standalone/server.js
           
           # Verificar que .next/static existe (necesario para los estilos)
           if [ ! -d .next/static ]; then
@@ -88,16 +95,21 @@ jobs:
           # Verificar que el tar.gz contiene todo lo necesario
           echo "Verificando contenido del tar.gz:"
           echo "- Standalone:"
-          tar -tzf ../app-next.tar.gz | grep "standalone.*server.js" | head -2
+          tar -tzf ../app-next.tar.gz | grep "server.js" | head -2
           echo "- Static:"
           tar -tzf ../app-next.tar.gz | grep "static/" | head -3
           echo "- Public:"
           tar -tzf ../app-next.tar.gz | grep "^public/" | head -3
           
-          if ! tar -tzf ../app-next.tar.gz | grep -q "standalone.*server.js"; then
-            echo "❌ ERROR: standalone/server.js no está en el tar.gz"
+          # Verificar que server.js está en el tar.gz (Next 15 usa standalone/app/server.js)
+          if ! tar -tzf ../app-next.tar.gz | grep -q "server.js"; then
+            echo "❌ ERROR: server.js no está en el tar.gz"
+            echo "Contenido del tar.gz relacionado con standalone:"
+            tar -tzf ../app-next.tar.gz | grep "standalone" | head -10
             exit 1
           fi
+          
+          echo "✅ server.js encontrado en el tar.gz"
           
           if ! tar -tzf ../app-next.tar.gz | grep -q "static/"; then
             echo "❌ ERROR: .next/static no está en el tar.gz (los estilos no funcionarán)"
