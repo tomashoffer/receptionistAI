@@ -28,7 +28,9 @@ jobs:
           cd api
           npm ci --legacy-peer-deps
           npm run build
+          # Comprimir con gzip nivel 6 (balance entre tamaño y CPU)
           tar czf ../api-dist.tar.gz dist
+          echo "✅ Backend compilado: $(du -h ../api-dist.tar.gz | cut -f1)"
 
       - name: Build frontend (Next.js)
         env:
@@ -40,13 +42,23 @@ jobs:
           npm run build
           # Excluir archivos innecesarios para reducir tamaño
           # Las opciones --exclude deben ir ANTES del directorio fuente
-          tar czf ../app-next.tar.gz --exclude='.next/cache' --exclude='.next/trace' .next
+          tar czf ../app-next.tar.gz \
+            --exclude='.next/cache' \
+            --exclude='.next/trace' \
+            --exclude='.next/server/app/**/*.js.map' \
+            .next
+          echo "✅ Frontend compilado: $(du -h ../app-next.tar.gz | cut -f1)"
 
       - name: Verificar tamaño de archivos
         run: |
           echo "Tamaño de archivos a copiar:"
           ls -lh api-dist.tar.gz app-next.tar.gz || true
           du -h api-dist.tar.gz app-next.tar.gz || true
+
+      - name: Instalar rsync
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y rsync
 
       - name: Configurar SSH key
         run: |
@@ -57,17 +69,31 @@ jobs:
 
       - name: Copiar backend a OCI (rsync)
         run: |
-          rsync -avz --progress --timeout=600 \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+          rsync -avz --progress --partial --timeout=600 --compress-level=3 \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
             api-dist.tar.gz \
-            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || {
+              echo "❌ Error en transferencia backend, reintentando..."
+              sleep 5
+              rsync -avz --progress --partial --timeout=600 --compress-level=3 \
+                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+                api-dist.tar.gz \
+                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+            }
 
       - name: Copiar frontend a OCI (rsync)
         run: |
-          rsync -avz --progress --timeout=600 \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+          rsync -avz --progress --partial --timeout=600 --compress-level=3 \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
             app-next.tar.gz \
-            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+            ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/ || {
+              echo "❌ Error en transferencia frontend, reintentando..."
+              sleep 5
+              rsync -avz --progress --partial --timeout=600 --compress-level=3 \
+                -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30" \
+                app-next.tar.gz \
+                ${{ secrets.OCI_USER }}@${{ secrets.OCI_HOST }}:/tmp/
+            }
 
       - name: Desplegar y reiniciar servicios
         uses: appleboy/ssh-action@v0.1.10
