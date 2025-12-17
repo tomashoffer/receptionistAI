@@ -39,7 +39,8 @@ jobs:
           npm ci --legacy-peer-deps
           npm run build
           # Excluir archivos innecesarios para reducir tamaño
-          tar czf ../app-next.tar.gz .next --exclude='.next/cache' --exclude='.next/trace'
+          # Las opciones --exclude deben ir ANTES del directorio fuente
+          tar czf ../app-next.tar.gz --exclude='.next/cache' --exclude='.next/trace' .next
 
       - name: Verificar tamaño de archivos
         run: |
