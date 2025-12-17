@@ -13,7 +13,8 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout código
+        uses: actions/checkout@v4
 
       - name: Instalar rsync y herramientas necesarias
         run: |
@@ -22,7 +23,8 @@ jobs:
           rsync --version
           echo "✅ rsync instalado correctamente"
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -47,13 +49,61 @@ jobs:
           cd app
           npm ci --legacy-peer-deps
           npm run build
-          # Excluir archivos innecesarios para reducir tamaño
-          # Las opciones --exclude deben ir ANTES del directorio fuente
+          
+          # Verificar que el standalone se generó
+          if [ ! -d .next/standalone ]; then
+            echo "❌ ERROR: .next/standalone no se generó. Verificando estructura..."
+            ls -la .next/ | head -20
+            exit 1
+          fi
+          
+          if [ ! -f .next/standalone/server.js ]; then
+            echo "❌ ERROR: .next/standalone/server.js no existe"
+            find .next -name "server.js" || echo "No se encontró server.js en ningún lado"
+            exit 1
+          fi
+          
+          echo "✅ Standalone generado correctamente"
+          ls -lh .next/standalone/server.js
+          
+          # Verificar que .next/static existe (necesario para los estilos)
+          if [ ! -d .next/static ]; then
+            echo "❌ ERROR: .next/static no existe. Los estilos no funcionarán."
+            exit 1
+          fi
+          
+          echo "✅ .next/static encontrado"
+          du -sh .next/static
+          
+          # Incluir .next/standalone, .next/static y public/ en el tar.gz
+          # Next.js standalone necesita static al mismo nivel que standalone
           tar czf ../app-next.tar.gz \
             --exclude='.next/cache' \
             --exclude='.next/trace' \
             --exclude='.next/server/app/**/*.js.map' \
-            .next
+            .next/standalone \
+            .next/static \
+            public
+          
+          # Verificar que el tar.gz contiene todo lo necesario
+          echo "Verificando contenido del tar.gz:"
+          echo "- Standalone:"
+          tar -tzf ../app-next.tar.gz | grep "standalone.*server.js" | head -2
+          echo "- Static:"
+          tar -tzf ../app-next.tar.gz | grep "static/" | head -3
+          echo "- Public:"
+          tar -tzf ../app-next.tar.gz | grep "^public/" | head -3
+          
+          if ! tar -tzf ../app-next.tar.gz | grep -q "standalone.*server.js"; then
+            echo "❌ ERROR: standalone/server.js no está en el tar.gz"
+            exit 1
+          fi
+          
+          if ! tar -tzf ../app-next.tar.gz | grep -q "static/"; then
+            echo "❌ ERROR: .next/static no está en el tar.gz (los estilos no funcionarán)"
+            exit 1
+          fi
+          
           echo "✅ Frontend compilado: $(du -h ../app-next.tar.gz | cut -f1)"
 
       - name: Verificar tamaño de archivos
@@ -138,12 +188,76 @@ jobs:
             set -e
             cd ${{ secrets.OCI_PROJECT_PATH }}
             echo "🧹 Limpiando destino antes de extraer..."
-            rm -rf api/dist/* app/.next/*
+            rm -rf api/dist/* app/.next/* app/public/*
             echo "📦 Extrayendo archivos..."
+            # Backend: extraer dist directamente
             tar xzf /tmp/api-dist.tar.gz -C api
-            tar xzf /tmp/app-next.tar.gz -C app
+            # Frontend: el tar.gz contiene standalone, static y public
+            echo "Extrayendo frontend..."
+            if [ -f /tmp/app-next.tar.gz ]; then
+              # Verificar contenido del tar.gz
+              echo "Contenido del tar.gz (primeros 15 archivos):"
+              tar -tzf /tmp/app-next.tar.gz | head -15
+              # Extraer todo en app/
+              tar xzf /tmp/app-next.tar.gz -C app
+              # Verificar que se extrajo correctamente
+              # Next.js standalone genera: .next/standalone/app/server.js
+              if [ -f app/.next/standalone/app/server.js ]; then
+                echo "✅ server.js encontrado correctamente en standalone/app/"
+                ls -lh app/.next/standalone/app/server.js
+              elif [ -f app/.next/standalone/server.js ]; then
+                echo "✅ server.js encontrado en standalone/ (estructura alternativa)"
+                ls -lh app/.next/standalone/server.js
+              else
+                echo "❌ ERROR: server.js NO encontrado después de extraer"
+                find app/.next -type f -name "server.js" 2>/dev/null || echo "No se encontró server.js"
+                exit 1
+              fi
+              # Verificar que static existe (crítico para los estilos)
+              if [ ! -d app/.next/static ]; then
+                echo "❌ ERROR: app/.next/static NO existe. Los estilos no funcionarán."
+                exit 1
+              fi
+              echo "✅ .next/static encontrado (estilos disponibles)"
+              ls -la app/.next/static/ | head -5
+              
+              # Crear symlinks para que standalone pueda acceder a static y public
+              # Next.js standalone busca static en .next/static y public/ relativo al servidor
+              echo "🔗 Creando symlinks para archivos estáticos y públicos..."
+              cd app/.next/standalone/app
+              # Symlink para static (CSS, JS, imágenes compiladas)
+              if [ ! -L .next/static ] && [ ! -d .next/static ]; then
+                mkdir -p .next
+                ln -s ../../../static .next/static
+                echo "✅ Symlink creado: .next/static -> ../../../static"
+              else
+                echo "✅ .next/static ya existe"
+              fi
+              # Symlink para public (archivos públicos como favicon, imágenes, etc.)
+              if [ ! -L public ] && [ ! -d public ]; then
+                # Construir ruta absoluta desde OCI_PROJECT_PATH
+                PROJECT_PATH="${{ secrets.OCI_PROJECT_PATH }}"
+                ln -s "$PROJECT_PATH/app/public" public
+                echo "✅ Symlink creado: public -> $PROJECT_PATH/app/public"
+              else
+                echo "✅ public ya existe"
+              fi
+              cd ${{ secrets.OCI_PROJECT_PATH }}
+            else
+              echo "❌ ERROR: /tmp/app-next.tar.gz no existe"
+              exit 1
+            fi
             rm /tmp/api-dist.tar.gz /tmp/app-next.tar.gz
+            echo "🔄 Actualizando servicio frontend con path correcto..."
+            # Asegurar que el servicio apunte al path correcto (standalone/app/server.js)
+            sudo sed -i 's|/app/.next/standalone/server.js|/app/.next/standalone/app/server.js|' /etc/systemd/system/frontend.service || true
+            sudo sed -i 's|WorkingDirectory=/home/ubuntu/receptionistAI-main/app/.next/standalone$|WorkingDirectory=/home/ubuntu/receptionistAI-main/app/.next/standalone/app|' /etc/systemd/system/frontend.service || true
+            sudo systemctl daemon-reload
+            
             echo "🔄 Reiniciando servicios..."
             sudo systemctl restart ${{ secrets.OCI_BACK_SERVICE }}
             sudo systemctl restart ${{ secrets.OCI_FRONT_SERVICE }}
+            sleep 3
+            echo "Verificando estado de servicios..."
+            sudo systemctl status ${{ secrets.OCI_FRONT_SERVICE }} --no-pager | head -10
             echo "✅ Deploy completado exitosamente"
